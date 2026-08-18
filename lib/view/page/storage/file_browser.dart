@@ -18,6 +18,7 @@ import 'package:server_box/data/res/store.dart';
 import 'package:server_box/view/page/storage/file_pane.dart';
 import 'package:server_box/view/page/storage/send_to.dart';
 import 'package:server_box/view/page/storage/transfer_announce.dart';
+import 'package:server_box/view/platform/ios_palette.dart';
 import 'package:server_box/view/widget/omit_start_text.dart';
 import 'package:server_box/view/widget/page_issue.dart';
 import 'package:server_box/view/widget/unix_perm.dart';
@@ -949,7 +950,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage>
             ...?widget.args.bottomActions?.call(this),
           ];
 
-    return SafeArea(
+    final content = SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(11, 7, 11, 11),
         child: Column(
@@ -970,6 +971,24 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage>
             ),
           ],
         ),
+      ),
+    );
+    if (!isIOS) return content;
+    return _buildIosToolbar(content);
+  }
+
+  /// The toolbar on the iOS cell surface with a hairline top edge.
+  Widget _buildIosToolbar(Widget child) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: IosPalette.secondaryGroupedBackgroundByBrightness(isDark),
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(color: IosPalette.separatorByBrightness(isDark)),
+          ),
+        ),
+        child: child,
       ),
     );
   }
@@ -1000,7 +1019,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage>
   /// to "delete 9 files".
   Widget _buildSelectionBar() {
     final entries = _selectedEntries;
-    return SafeArea(
+    final content = SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(11, 7, 11, 11),
         child: Row(
@@ -1027,6 +1046,8 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage>
         ),
       ),
     );
+    if (!isIOS) return content;
+    return _buildIosToolbar(content);
   }
 
   /// Sends several to one destination, asking once where.
@@ -1215,6 +1236,39 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage>
     // registers an inherited-widget dependency, and doing that inside
     // `itemBuilder` did it for every visible entry, every rebuild.
     final narrow = MediaQuery.sizeOf(context).width < 350;
+    if (isIOS) {
+      return FadeIn(
+        key: ValueKey(_path.path),
+        child: ListView.builder(
+          // One more than there is, when there is nothing: an empty directory
+          // still has to say so, and still has to be leavable.
+          itemCount: items.isEmpty ? up + 1 : items.length + up,
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          itemBuilder: (context, index) {
+            if (up == 1 && index == 0) {
+              return _buildIosEntryRow(
+                ListTile(
+                  leading: const Icon(Icons.arrow_upward),
+                  title: const Text('..'),
+                  onTap: () => _go(_path.goUp),
+                ),
+                first: true,
+              );
+            }
+            if (items.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Center(child: Text(libL10n.empty, style: UIs.textGrey)),
+              );
+            }
+            final idx = index - up;
+            final entry = items[idx];
+            final row = _buildEntry(entry, narrow: narrow);
+            return _buildIosEntryRow(row, first: idx == 0 && up == 0);
+          },
+        ),
+      );
+    }
     return FadeIn(
       key: ValueKey(_path.path),
       child: ListView.builder(
@@ -1239,6 +1293,24 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage>
           return _buildEntry(items[index - up], narrow: narrow);
         },
       ),
+    );
+  }
+
+  /// A full-width entry row on the grouped background, hairline-separated,
+  /// the way the iOS Files list reads.
+  Widget _buildIosEntryRow(Widget row, {required bool first}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      decoration: first
+          ? null
+          : BoxDecoration(
+              border: Border(
+                top: BorderSide(
+                  color: IosPalette.separatorByBrightness(isDark),
+                ),
+              ),
+            ),
+      child: row,
     );
   }
 
@@ -1305,29 +1377,29 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage>
       ],
     ];
 
-    return CardX(
-      child: ListTile(
-        leading: icon,
-        title: Text(label ?? entry.name),
-        subtitle: details.isEmpty
-            ? null
-            : Text(details.join('\n'), style: UIs.textGrey),
-        trailing: isNarrow ? null : _buildEntryTrailing(entry),
-        onTap: onTap,
-        onLongPress: onLongPress,
-        selected: _selected.contains(entry.name),
-        selectedTileColor: Theme.of(
-          context,
-        ).colorScheme.secondaryContainer.withValues(alpha: 0.55),
-        // Where the keyboard is, which is not the same as what is picked out.
-        shape: _cursorEntry?.name == entry.name
-            ? RoundedRectangleBorder(
-                side: BorderSide(color: UIs.primaryColor, width: 1.5),
-                borderRadius: BorderRadius.circular(13),
-              )
-            : null,
-      ).onSecondary(onSecondaryTap),
-    );
+    final tile = ListTile(
+      leading: icon,
+      title: Text(label ?? entry.name),
+      subtitle: details.isEmpty
+          ? null
+          : Text(details.join('\n'), style: UIs.textGrey),
+      trailing: isNarrow ? null : _buildEntryTrailing(entry),
+      onTap: onTap,
+      onLongPress: onLongPress,
+      selected: _selected.contains(entry.name),
+      selectedTileColor: Theme.of(
+        context,
+      ).colorScheme.secondaryContainer.withValues(alpha: 0.55),
+      // Where the keyboard is, which is not the same as what is picked out.
+      shape: _cursorEntry?.name == entry.name
+          ? RoundedRectangleBorder(
+              side: BorderSide(color: UIs.primaryColor, width: 1.5),
+              borderRadius: BorderRadius.circular(13),
+            )
+          : null,
+    ).onSecondary(onSecondaryTap);
+    if (!isIOS) return CardX(child: tile);
+    return tile;
   }
 
   Widget? _buildEntryTrailing(FileEntry entry) {

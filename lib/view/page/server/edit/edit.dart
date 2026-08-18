@@ -187,6 +187,13 @@ class _ServerEditPageState extends ConsumerState<ServerEditPage>
       if (spi == null) _buildDiscoverBtn(),
       _buildWriteScriptTip(),
       if (spi != null) _buildDelBtn(),
+      // iOS saves from the bar; the FAB is the non-iOS affordance.
+      if (isIOS)
+        IconButton(
+          icon: const Icon(Icons.save),
+          tooltip: libL10n.save,
+          onPressed: _onSave,
+        ),
     ];
 
     return Scaffold(
@@ -195,7 +202,7 @@ class _ServerEditPageState extends ConsumerState<ServerEditPage>
         onTap: () => _focusScope.unfocus(),
         child: _buildForm(),
       ),
-      floatingActionButton: _buildFAB(),
+      floatingActionButton: isIOS ? null : _buildFAB(),
     );
   }
 

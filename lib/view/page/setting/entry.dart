@@ -267,6 +267,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     });
   }
 
+  /// Push navigation, iOS-style: a leaf opens its own page instead of
+  /// switching what the level's PageView shows.
+  void _onIosTab(SettingsNode node) {
+    setState(() {
+      _path.add(node);
+      _selectedId = node.isLeaf ? node.id : node.firstLeaf?.id;
+    });
+  }
+
   /// Out one level. What was selected stays selected — it is inside the branch
   /// just left, and that branch is a tab here, lit to say so.
   void _onTabBack() {
@@ -302,6 +311,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           selected: selected,
         );
       },
+    );
+  }
+
+  Widget _pagesOf(String id, List<SettingsNode> level) {
+    return _SettingsPages(
+      key: ValueKey('pages_$id'),
+      leaves: level.where((e) => e.isLeaf).toList(),
+      selectedId: _selectedId!,
+      onChanged: _onSelect,
     );
   }
 
@@ -406,32 +424,23 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     required List<SettingsNode> nodes,
     required SettingsNode selected,
   }) {
-    Widget pagesOf(String id, List<SettingsNode> level) {
-      return _SettingsPages(
-        key: ValueKey('pages_$id'),
-        leaves: level.where((e) => e.isLeaf).toList(),
-        selectedId: selected.id,
-        onChanged: _onSelect,
-      );
-    }
-
     return Navigator(
       pages: [
         if (wide)
           MaterialPage<void>(
             key: ValueKey(_groupOf(nodes, selected.id)?.firstOrNull?.id ?? 'root'),
-            child: pagesOf(selected.id, _groupOf(nodes, selected.id) ?? const []),
+            child: _pagesOf(selected.id, _groupOf(nodes, selected.id) ?? const []),
           )
         else ...[
           // What settings there are, which is where a narrow window starts.
           MaterialPage<void>(
             key: const ValueKey('root'),
-            child: _SettingsList(nodes: nodes, onTap: _onTab),
+            child: _SettingsList(nodes: nodes, onTap: isIOS ? _onIosTab : _onTab),
           ),
           for (final entered in _path)
             MaterialPage<void>(
               key: ValueKey(entered.id),
-              child: pagesOf(entered.id, _levelOf(entered)),
+              child: _buildEnteredPage(entered, selected),
             ),
         ],
       ],
@@ -446,12 +455,27 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
+  /// What a level of the settings is made of, per platform.
+  ///
+  /// Everywhere else a branch's leaves sit side by side in a PageView under
+  /// the floating tab bar. On iOS a branch is pushed, and its children are a
+  /// list to walk into — a leaf pushes its own page.
+  Widget _buildEnteredPage(SettingsNode entered, SettingsNode selected) {
+    if (entered.isLeaf) return _pagesOf(entered.id, [entered]);
+    if (!isIOS) return _pagesOf(entered.id, _levelOf(entered));
+    return _SettingsLevelList(nodes: entered.children, onTap: _onIosTab);
+  }
+
   /// The content with the tabs floating over its foot.
   ///
   /// The content is told to keep clear of them through the [MediaQuery] its own
   /// `SafeArea` reads, so a list scrolls to its end above the bar rather than
   /// under it.
   Widget _buildNarrow(List<SettingsNode> nodes, Widget content) {
+    // iOS walks the settings by pushing pages; the floating tab bar is the
+    // non-iOS way to move between a level's leaves.
+    if (isIOS) return SafeArea(top: false, child: content);
+
     final mediaQuery = MediaQuery.of(context);
     // Nothing over the list — a bar of tabs there would be the same names
     // twice — and nothing over a leaf, which has no level under it to show.
@@ -614,35 +638,3 @@ final class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
 
 
 
-/// Turns a settings section (a [Column] of CardX-wrapped tiles) into an iOS
-/// grouped section: the cards' chrome unwrapped, hairline separators between
-/// the rows, everything on the cell surface.
-Widget iosifySection(BuildContext context, Widget group) {
-  var inner = group;
-  if (inner is CardX) inner = inner.child;
-  final tiles = inner is Column ? inner.children : <Widget>[inner];
-  final isDark = Theme.of(context).brightness == Brightness.dark;
-  final cells = <Widget>[];
-  for (var i = 0; i < tiles.length; i++) {
-    var tile = tiles[i];
-    if (tile is CardX) tile = tile.child;
-    cells.add(tile);
-    if (i != tiles.length - 1) {
-      cells.add(
-        Container(
-          height: 0.5,
-          color: IosPalette.separatorByBrightness(isDark),
-          margin: const EdgeInsets.only(left: 16),
-        ),
-      );
-    }
-  }
-  return Container(
-    clipBehavior: Clip.antiAlias,
-    decoration: BoxDecoration(
-      color: IosPalette.secondaryGroupedBackgroundByBrightness(isDark),
-      borderRadius: BorderRadius.circular(10),
-    ),
-    child: Column(children: cells),
-  );
-}

@@ -90,24 +90,28 @@ class _SnippetListPageState extends ConsumerState<SnippetListPage>
         onTagChanged: (tag) => _tag.value = tag,
         initTag: _tag.value,
         onSearch: () => _search(filtered),
+        onAdd: isIOS ? () => _edit(null, false) : null,
       ),
       body: _buildSnippetList(filtered, split),
       // Beside a pane it is the small one the server rail uses, over a list
       // that leaves room for it — rather than a second row of buttons under
       // the bar, which no other pane has.
-      floatingActionButton: split
-          ? FloatingActionButton.small(
+      // iOS adds from the bar; the FAB is the non-iOS affordance.
+      floatingActionButton: isIOS
+          ? null
+          : (split
+              ? FloatingActionButton.small(
               heroTag: 'snippetAddPane',
               tooltip: libL10n.add,
               onPressed: () => _edit(null, true),
               child: const Icon(Icons.add),
             )
-          : FloatingActionButton(
-              heroTag: 'snippetAdd',
-              tooltip: libL10n.add,
-              onPressed: () => _edit(null, false),
-              child: const Icon(Icons.add),
-            ),
+              : FloatingActionButton(
+                  heroTag: 'snippetAdd',
+                  tooltip: libL10n.add,
+                  onPressed: () => _edit(null, false),
+                  child: const Icon(Icons.add),
+                )),
     );
   }
 
@@ -226,12 +230,14 @@ final class _SnippetBar extends StatelessWidget implements PreferredSizeWidget {
   final String initTag;
   final void Function(String) onTagChanged;
   final VoidCallback onSearch;
+  final VoidCallback? onAdd;
 
   const _SnippetBar({
     required this.tags,
     required this.initTag,
     required this.onTagChanged,
     required this.onSearch,
+    this.onAdd,
   });
 
   @override
@@ -251,6 +257,12 @@ final class _SnippetBar extends StatelessWidget implements PreferredSizeWidget {
             icon: const Icon(Icons.search, size: 20),
             onTap: onSearch,
           ),
+          if (onAdd != null)
+            IconButton(
+              icon: const Icon(Icons.add),
+              tooltip: libL10n.add,
+              onPressed: onAdd,
+            ),
         ],
       ),
     );

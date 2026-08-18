@@ -259,6 +259,37 @@ final class _SettingsRow extends StatelessWidget {
   }
 }
 
+/// The iOS push-navigation replacement for the floating tab bar: a branch's
+/// leaves as a grouped list, each row walking into its own page.
+final class _SettingsLevelList extends StatelessWidget {
+  final List<SettingsNode> nodes;
+  final void Function(SettingsNode node) onTap;
+
+  const _SettingsLevelList({required this.nodes, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return IosGroupedList(
+      children: [
+        IosSection(
+          children: [
+            for (final node in nodes)
+              IosRow(
+                title: node.title,
+                leading: IosSettingsIcon(
+                  node.icon,
+                  color: _SettingsList._iosSettingsColor(context, node.id),
+                ),
+                chevron: true,
+                onTap: () => onTap(node),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 /// The first thing a narrow window shows: what settings there are.
 ///
 /// Flat, and every row goes somewhere. The wide menu opens a branch in place

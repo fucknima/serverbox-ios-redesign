@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fl_lib/fl_lib.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:server_box/core/extension/context/locale.dart';
@@ -89,14 +90,48 @@ extension _ContainerPageWidgets on _ContainerPageState {
     return CustomAppBar(
       centerTitle: true,
       title: TwoLineText(up: libL10n.container, down: widget.args.spi.name),
-      bottom: TabBar(
-        controller: _tabCtrl,
-        dividerHeight: 0,
-        tabAlignment: TabAlignment.center,
-        isScrollable: true,
-        tabs: _ContainerTabs.values
-            .map((e) => Tab(text: e.i18n))
-            .toList(growable: false),
+      bottom: isIOS
+          ? _buildIosSegmented()
+          : TabBar(
+              controller: _tabCtrl,
+              dividerHeight: 0,
+              tabAlignment: TabAlignment.center,
+              isScrollable: true,
+              tabs: _ContainerTabs.values
+                  .map((e) => Tab(text: e.i18n))
+                  .toList(growable: false),
+            ),
+    );
+  }
+
+  /// The iOS segmented control over the same three tabs.
+  PreferredSizeWidget _buildIosSegmented() {
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(56),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+          child: CupertinoSlidingSegmentedControl<int>(
+            groupValue: _tabCtrl.index,
+            onValueChanged: (value) {
+              if (value != null) _tabCtrl.animateTo(value);
+            },
+            children: {
+              for (final tab in _ContainerTabs.values)
+                tab.index: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 6,
+                  ),
+                  child: Text(
+                    tab.i18n,
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+            },
+          ),
+        ),
       ),
     );
   }

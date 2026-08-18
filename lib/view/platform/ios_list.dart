@@ -1,3 +1,4 @@
+import 'package:fl_lib/fl_lib.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
@@ -327,4 +328,38 @@ class IosSettingsIcon extends StatelessWidget {
       child: Icon(icon, size: 17, color: Colors.white),
     );
   }
+}
+
+
+/// Turns a settings-style section (a [Column] of CardX-wrapped tiles) into an
+/// iOS grouped section: the cards' chrome unwrapped, hairline separators
+/// between the rows, everything on the cell surface.
+Widget iosifySection(BuildContext context, Widget group) {
+  var inner = group;
+  if (inner is CardX) inner = inner.child;
+  final tiles = inner is Column ? inner.children : <Widget>[inner];
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  final cells = <Widget>[];
+  for (var i = 0; i < tiles.length; i++) {
+    var tile = tiles[i];
+    if (tile is CardX) tile = tile.child;
+    cells.add(tile);
+    if (i != tiles.length - 1) {
+      cells.add(
+        Container(
+          height: 0.5,
+          color: IosPalette.separatorByBrightness(isDark),
+          margin: const EdgeInsets.only(left: 16),
+        ),
+      );
+    }
+  }
+  return Container(
+    clipBehavior: Clip.antiAlias,
+    decoration: BoxDecoration(
+      color: IosPalette.secondaryGroupedBackgroundByBrightness(isDark),
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: Column(children: cells),
+  );
 }

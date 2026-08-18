@@ -9,6 +9,8 @@ import 'package:server_box/data/model/server/private_key_info.dart';
 import 'package:server_box/data/provider/private_key.dart';
 import 'package:server_box/data/res/store.dart';
 import 'package:server_box/view/page/private_key/edit.dart';
+import 'package:server_box/view/platform/ios_list.dart';
+import 'package:server_box/view/platform/ios_nav.dart';
 import 'package:server_box/view/widget/page_columns.dart';
 
 class PrivateKeysListPage extends ConsumerStatefulWidget {
@@ -27,12 +29,52 @@ class _PrivateKeyListState extends ConsumerState<PrivateKeysListPage>
     with AfterLayoutMixin {
   @override
   Widget build(BuildContext context) {
+    if (isIOS) {
+      return IosNavPage(
+        title: l10n.privateKey,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            tooltip: libL10n.add,
+            onPressed: () => PrivateKeyEditPage.route.go(context),
+          ),
+        ],
+        body: _buildIosBody(),
+      );
+    }
     return Scaffold(
       body: SafeArea(child: _buildBody()),
       floatingActionButton: FloatingActionButton(
         child: const Icon(Icons.add),
         onPressed: () => PrivateKeyEditPage.route.go(context),
       ),
+    );
+  }
+
+  Widget _buildIosBody() {
+    final privateKeyState = ref.watch(privateKeyProvider);
+    final pkis = privateKeyState.keys;
+    if (pkis.isEmpty) {
+      return Center(child: Text(libL10n.empty));
+    }
+    return IosGroupedList(
+      children: [
+        IosSection(
+          children: [
+            for (final item in pkis)
+              IosRow(
+                title: item.id,
+                subtitle: item.type ?? libL10n.unknown,
+                leading: const IosSettingsIcon(Icons.key_outlined),
+                chevron: true,
+                onTap: () => PrivateKeyEditPage.route.go(
+                  context,
+                  args: PrivateKeyEditPageArgs(pki: item),
+                ),
+              ),
+          ],
+        ),
+      ],
     );
   }
 
