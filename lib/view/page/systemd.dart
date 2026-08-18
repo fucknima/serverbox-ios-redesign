@@ -8,6 +8,7 @@ import 'package:server_box/data/model/server/systemd.dart';
 import 'package:server_box/data/provider/systemd.dart';
 import 'package:server_box/data/ssh/terminal_source.dart';
 import 'package:server_box/view/page/ssh/page/page.dart';
+import 'package:server_box/view/platform/ios_list.dart';
 import 'package:server_box/view/widget/page_issue.dart';
 
 final class SystemdPage extends ConsumerStatefulWidget {
@@ -165,10 +166,9 @@ final class _SystemdPageState extends ConsumerState<SystemdPage> {
         child: CenterGreyTitle(libL10n.empty).paddingSymmetric(horizontal: 13),
       );
     }
-    return SliverList(
-      delegate: SliverChildBuilderDelegate((context, index) {
-        final unit = filteredUnits[index];
-        return ListTile(
+    final rows = [
+      for (final unit in filteredUnits)
+        ListTile(
           leading: _buildScopeTag(unit.scope),
           title: unit.description != null
               ? TipText(unit.name, unit.description!)
@@ -177,8 +177,20 @@ final class _SystemdPageState extends ConsumerState<SystemdPage> {
             children: [_buildStateTag(unit.state), _buildTypeTag(unit.type)],
           ).paddingOnly(top: 7),
           trailing: _buildUnitFuncs(unit),
-        ).cardx.paddingSymmetric(horizontal: 13);
-      }, childCount: filteredUnits.length),
+        ),
+    ];
+    if (!isIOS) {
+      return SliverList(
+        delegate: SliverChildListDelegate([
+          for (final row in rows) row.cardx.paddingSymmetric(horizontal: 13),
+        ]),
+      );
+    }
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+        child: IosSection(children: rows),
+      ),
     );
   }
 

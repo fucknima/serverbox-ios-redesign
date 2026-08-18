@@ -6,6 +6,7 @@ import 'package:server_box/core/route.dart';
 import 'package:server_box/data/model/server/port_forward.dart';
 import 'package:server_box/data/provider/port_forward_provider.dart';
 import 'package:server_box/data/res/store.dart';
+import 'package:server_box/view/platform/ios_list.dart';
 
 final class PortForwardPage extends ConsumerStatefulWidget {
   final SpiRequiredArgs args;
@@ -89,14 +90,27 @@ final class _PortForwardPageState extends ConsumerState<PortForwardPage> {
       return _buildEmpty();
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: configs.length,
-      itemBuilder: (context, index) {
-        final config = configs[index];
-        final status = state.activeForwards[config.id];
-        return _buildConfigTile(config, status);
-      },
+    if (!isIOS) {
+      return ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: configs.length,
+        itemBuilder: (context, index) {
+          final config = configs[index];
+          final status = state.activeForwards[config.id];
+          return _buildConfigTile(config, status);
+        },
+      );
+    }
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+      children: [
+        IosSection(
+          children: [
+            for (final config in configs)
+              _buildConfigTile(config, state.activeForwards[config.id]),
+          ],
+        ),
+      ],
     );
   }
 
@@ -116,6 +130,15 @@ final class _PortForwardPageState extends ConsumerState<PortForwardPage> {
   }
 
   Widget _buildConfigTile(PortForwardConfig config, PortForwardStatus? status) {
+    return _buildConfigTileInner(config, status)
+        .cardx
+        .paddingSymmetric(horizontal: 13, vertical: 4);
+  }
+
+  Widget _buildConfigTileInner(
+    PortForwardConfig config,
+    PortForwardStatus? status,
+  ) {
     final isActive = status?.isActive ?? false;
     final hasError = status?.error != null;
     final colorScheme = Theme.of(context).colorScheme;
