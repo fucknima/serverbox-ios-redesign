@@ -76,18 +76,24 @@ class IosNavPage extends StatelessWidget {
       ],
     );
 
+    // The system Dynamic Type stays in charge; the app's textFactor only
+    // steps in when the user actually set one (the default 1.0 passes the
+    // system scaler through untouched). Locking the scale here would have
+    // made the system 'larger text' setting a no-op.
+    final child = CupertinoPageScaffold(
+      backgroundColor: bg,
+      child: Column(
+        children: [
+          Expanded(child: scrollView),
+          ?bottomBar,
+        ],
+      ),
+    );
+    if (textFactor == 1.0) return child;
     return MediaQuery.withClampedTextScaling(
       minScaleFactor: textFactor,
       maxScaleFactor: textFactor,
-      child: CupertinoPageScaffold(
-        backgroundColor: bg,
-        child: Column(
-          children: [
-            Expanded(child: scrollView),
-            ?bottomBar,
-          ],
-        ),
-      ),
+      child: child,
     );
   }
 
@@ -140,7 +146,10 @@ class IosNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = background ?? IosPalette.secondaryGroupedBackgroundByBrightness(isDark);
+    // The bar is one surface with the status bar above it, so it uses the
+    // page background — a differently-colored bar read as a strip glued
+    // under the system bar.
+    final bg = background ?? IosPalette.groupedBackgroundByBrightness(isDark);
 
     return CupertinoPageScaffold(
       backgroundColor: bg,
@@ -207,6 +216,104 @@ class IosToolbar extends StatelessWidget implements PreferredSizeWidget {
       child: SafeArea(
         top: false,
         child: SizedBox(height: 48.5, child: Row(children: children)),
+      ),
+    );
+  }
+}
+
+/// The iPhone session header for the terminal and file tabs.
+///
+/// One bar, the session's name in the middle (tapping it switches sessions),
+/// actions on the right. No desktop tab strip, no second toolbar.
+class IosSessionHeader extends StatelessWidget implements PreferredSizeWidget {
+  const IosSessionHeader({
+    super.key,
+    required this.title,
+    this.subtitle,
+    this.actions,
+    this.onTitleTap,
+    this.background,
+  });
+
+  final String title;
+  final String? subtitle;
+  final List<Widget>? actions;
+  final VoidCallback? onTitleTap;
+  final Color? background;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(44);
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // One surface with the status bar: the page background, not a bar color.
+    final bg = background ?? IosPalette.groupedBackgroundByBrightness(isDark);
+    final label = IosPalette.secondaryLabelByBrightness(isDark);
+
+    final titleWidget = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTitleTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Flexible(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            if (onTitleTap != null) ...[
+              const SizedBox(width: 4),
+              Icon(CupertinoIcons.chevron_down, size: 12, color: label),
+            ],
+          ],
+        ),
+      ),
+    );
+
+    return Material(
+      color: bg,
+      child: SafeArea(
+        bottom: false,
+        child: SizedBox(
+          height: 44,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              titleWidget,
+              if (subtitle != null)
+                Align(
+                  alignment: const Alignment(0, 1.1),
+                  child: Text(
+                    subtitle!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11, color: label),
+                  ),
+                ),
+              if (actions != null)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: actions!,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

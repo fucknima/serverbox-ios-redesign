@@ -268,20 +268,53 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     });
   }
 
-  /// Push navigation, iOS-style: a leaf opens its own page instead of
-  /// switching what the level's PageView shows.
-  void _onIosTab(SettingsNode node) {
-    setState(() {
-      _path.add(node);
-      _selectedId = node.isLeaf ? node.id : node.firstLeaf?.id;
-    });
-  }
 
   /// Out one level. What was selected stays selected — it is inside the branch
   /// just left, and that branch is a tab here, lit to say so.
   void _onTabBack() {
     if (_path.isEmpty) return;
     setState(_path.removeLast);
+  }
+
+  /// The iPhone root: a plain Cupertino page whose list pushes every level as
+  /// a real route — standard push/pop animation and edge-swipe back, no
+  /// setState-driven page switching.
+  Widget _buildIosRoot(List<SettingsNode> nodes) {
+    return CupertinoPageScaffold(
+      navigationBar: CupertinoNavigationBar(
+        middle: Text(libL10n.setting),
+      ),
+      child: _SettingsList(
+        nodes: nodes,
+        onTap: (node) => _iosPush(context, node),
+        onLogs: _onIosLogs,
+        onClearAll: _onIosClearAll,
+      ),
+    );
+  }
+
+  /// Pushes one settings level (or a leaf page) with its own Cupertino bar,
+  /// so back and edge-swipe work per level.
+  void _iosPush(BuildContext context, SettingsNode node) {
+    Navigator.of(context).push(
+      CupertinoPageRoute<void>(
+        builder: (_) {
+          final Widget body = node.isLeaf
+              ? node.builder!()
+              : _SettingsLevelList(
+                  nodes: node.children,
+                  onTap: (child) => _iosPush(context, child),
+                );
+          return CupertinoPageScaffold(
+            navigationBar: CupertinoNavigationBar(
+              middle: Text(node.title),
+              previousPageTitle: node.isLeaf ? libL10n.setting : null,
+            ),
+            child: body,
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -304,6 +337,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        // iPhone settings walk a real navigation stack: the list pushes each
+        // level, edge-swipe back pops it. No setState page switching here.
+        if (isIOS && constraints.maxWidth < _kMenuBreakpoint) {
+          return _buildIosRoot(nodes);
+        }
         final wide = constraints.maxWidth >= _kMenuBreakpoint;
         return _buildScaffold(
           wide: wide,
@@ -476,12 +514,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           // What settings there are, which is where a narrow window starts.
           MaterialPage<void>(
             key: const ValueKey('root'),
-            child: _SettingsList(
-              nodes: nodes,
-              onTap: isIOS ? _onIosTab : _onTab,
-              onLogs: isIOS ? _onIosLogs : null,
-              onClearAll: isIOS ? _onIosClearAll : null,
-            ),
+            child: _SettingsList(nodes: nodes, onTap: _onTab),
           ),
           for (final entered in _path)
             MaterialPage<void>(
@@ -501,15 +534,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  /// What a level of the settings is made of, per platform.
-  ///
-  /// Everywhere else a branch's leaves sit side by side in a PageView under
-  /// the floating tab bar. On iOS a branch is pushed, and its children are a
-  /// list to walk into — a leaf pushes its own page.
+  /// What a level of the settings is made of, outside iOS: a branch's leaves
+  /// sit side by side in a PageView under the floating tab bar.
   Widget _buildEnteredPage(SettingsNode entered, SettingsNode selected) {
     if (entered.isLeaf) return _pagesOf(entered.id, [entered]);
-    if (!isIOS) return _pagesOf(entered.id, _levelOf(entered));
-    return _SettingsLevelList(nodes: entered.children, onTap: _onIosTab);
+    return _pagesOf(entered.id, _levelOf(entered));
   }
 
   /// The content with the tabs floating over its foot.
@@ -518,10 +547,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   /// `SafeArea` reads, so a list scrolls to its end above the bar rather than
   /// under it.
   Widget _buildNarrow(List<SettingsNode> nodes, Widget content) {
-    // iOS walks the settings by pushing pages; the floating tab bar is the
-    // non-iOS way to move between a level's leaves.
-    if (isIOS) return SafeArea(top: false, child: content);
-
     final mediaQuery = MediaQuery.of(context);
     // Nothing over the list — a bar of tabs there would be the same names
     // twice — and nothing over a leaf, which has no level under it to show.

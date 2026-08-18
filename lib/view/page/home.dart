@@ -189,7 +189,11 @@ class _HomePageState extends ConsumerState<HomePage>
     _syncFullscreenSystemUi();
 
     final Widget mainContent = Scaffold(
-      appBar: _AppBar(MediaQuery.paddingOf(context).top),
+      // iOS pages draw their own Cupertino navigation bars, which extend to
+      // the top of the screen and own their safe area. Reserving status-bar
+      // height here made the system bar read as a separate dark strip above
+      // a different-colored bar. Everywhere else the spacer stays.
+      appBar: isIOS ? null : _AppBar(MediaQuery.paddingOf(context).top),
       body: Row(
         children: [
           if (!isMobile) _buildRailBar(),

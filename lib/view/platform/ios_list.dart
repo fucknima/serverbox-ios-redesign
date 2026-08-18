@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:fl_lib/fl_lib.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:server_box/data/res/store.dart';
 
 import 'package:server_box/view/platform/ios_palette.dart';
 
@@ -54,8 +55,11 @@ class IosSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final amoled = isDark &&
-        Theme.of(context).scaffoldBackgroundColor == Colors.black;
+    // Dark mode's grouped background is black anyway, so guessing AMOLED
+    // from the scaffold color put every dark section at pure black. Ask the
+    // setting instead: 3 = AMOLED, 4 = auto-AMOLED (AMOLED only in dark).
+    final tMode = Stores.setting.themeMode.fetch();
+    final amoled = tMode == 3 || (tMode == 4 && isDark);
     final cellColor =
         background ?? IosPalette.secondaryGroupedBackgroundByBrightness(isDark);
     final separatorColor = IosPalette.separatorByBrightness(isDark);

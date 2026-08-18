@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:fl_lib/fl_lib.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:icons_plus/icons_plus.dart';
@@ -19,6 +20,7 @@ import 'package:server_box/data/ssh/terminal_source.dart';
 import 'package:server_box/view/page/server/edit/edit.dart';
 import 'package:server_box/view/page/ssh/page/page.dart';
 import 'package:server_box/view/platform/ios_list.dart';
+import 'package:server_box/view/platform/ios_nav.dart';
 import 'package:server_box/view/widget/empty_pane.dart';
 import 'package:server_box/view/widget/pane_settings.dart';
 import 'package:server_box/view/widget/rootfs_install.dart';
@@ -89,14 +91,17 @@ class _SSHTabPageState extends ConsumerState<SSHTabPage>
       onLongPress: (spi) =>
           ServerEditPage.route.go(context, args: SpiRequiredArgs(spi)),
     ),
-    floatingActionButton: Builder(
-      builder: (ctx) => FloatingActionButton(
-        heroTag: 'sshAddServer',
-        onPressed: () => ServerEditPage.route.go(ctx),
-        tooltip: libL10n.add,
-        child: const Icon(Icons.add),
-      ),
-    ),
+    // iOS adds from the session header; the FAB is the non-iOS affordance.
+    floatingActionButton: isIOS
+        ? null
+        : Builder(
+            builder: (ctx) => FloatingActionButton(
+              heroTag: 'sshAddServer',
+              onPressed: () => ServerEditPage.route.go(ctx),
+              tooltip: libL10n.add,
+              child: const Icon(Icons.add),
+            ),
+          ),
   );
 
   @override
@@ -164,6 +169,19 @@ class _SSHTabPageState extends ConsumerState<SSHTabPage>
       });
     }
 
+    if (isIOS && !split) {
+      return Scaffold(
+        // iPhone: one session header, no desktop tab strip. The FAB is gone
+        // — adding a server lives in the header's menu.
+        appBar: _iosSessionBar,
+        body: SessionTabsView<_SshSession>(
+          controller: _sessions,
+          leading: _picker,
+          builder: (_, tab) => tab.data.page,
+        ),
+      );
+    }
+
     return Scaffold(
       // With a rail beside it there is nothing left for a strip to do: the
       // rail switches sessions and starts them, so all the bar has to say is
@@ -196,6 +214,111 @@ class _SSHTabPageState extends ConsumerState<SSHTabPage>
       leadingActions: [_sortBtn, _searchBtn, _historyBtn],
     ),
   );
+
+  PreferredSizeWidget get _iosSessionBar => PreferredSizeListenBuilder(
+    listenable: Listenable.merge([_sessions, _sortVersion]),
+    builder: () {
+      final current = _sessions.current;
+      final isPicker = _sessions.index == 0;
+      final sessionCount = _sessions.tabs.length;
+      return IosSessionHeader(
+        title: current?.name ?? libL10n.terminal,
+        onTitleTap: isPicker || sessionCount <= 1
+            ? null
+            : _showIosSessionSwitch,
+        actions: isPicker
+            ? [
+                _iosIconBtn(
+                  CupertinoIcons.search,
+                  libL10n.search,
+                  _showSearch,
+                ),
+                _iosIconBtn(
+                  CupertinoIcons.sort_up,
+                  libL10n.sort,
+                  _showSortMenu,
+                ),
+                _iosIconBtn(CupertinoIcons.ellipsis, libL10n.more, () {
+                  showCupertinoModalPopup(
+                    context: context,
+                    builder: (context) => CupertinoActionSheet(
+                      actions: [
+                        CupertinoActionSheetAction(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _showHistory();
+                          },
+                          child: Text(l10n.history),
+                        ),
+                        CupertinoActionSheetAction(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            ServerEditPage.route.go(context);
+                          },
+                          child: Text(libL10n.add),
+                        ),
+                      ],
+                      cancelButton: CupertinoActionSheetAction(
+                        onPressed: () => Navigator.pop(context),
+                        child: Text(libL10n.cancel),
+                      ),
+                    ),
+                  );
+                }),
+              ]
+            : [
+                _snippetBtn,
+                if (current?.data.page.args.spi != null) _agentBtn,
+              ],
+      );
+    },
+  );
+
+  /// Switch the open terminal from the header, iOS-style: an action sheet
+  /// of the sessions, the picker as a way back to it.
+  void _showIosSessionSwitch() {
+    final names = _sessions.names;
+    showCupertinoModalPopup(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
+        title: Text(libL10n.terminal),
+        actions: [
+          for (var i = 0; i < names.length; i++)
+            CupertinoActionSheetAction(
+              isDefaultAction: _sessions.index == i + 1,
+              onPressed: () {
+                Navigator.pop(context);
+                _sessions.select(i + 1);
+              },
+              child: Text(names[i]),
+            ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _sessions.select(0);
+            },
+            child: Text(libL10n.add),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(context),
+          child: Text(libL10n.cancel),
+        ),
+      ),
+    );
+  }
+
+  /// A plain Cupertino header action.
+  Widget _iosIconBtn(IconData icon, String tooltip, VoidCallback onTap) {
+    return Tooltip(
+      message: tooltip,
+      child: CupertinoButton(
+        padding: const EdgeInsets.all(8),
+        onPressed: onTap,
+        child: Icon(icon, size: 21),
+      ),
+    );
+  }
 
   PreferredSizeWidget get _sessionBar => PreferredSizeListenBuilder(
     listenable: _sessions,

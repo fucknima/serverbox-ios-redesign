@@ -458,7 +458,10 @@ class _AgentConversationViewState extends ConsumerState<AgentConversationView> {
 
   Widget _buildHeader(BuildContext context, ThemeData theme) {
     final compact = widget.compact;
-    if (isIOS && !compact) {
+    // iPhone: the large-title header. The floating shell never reaches this
+    // branch — it draws its own bar (showHeader: false) — and `compact` is
+    // true for the iPhone tab as well, so gating on it hid the iOS header.
+    if (isIOS) {
       // iPhone tab header: the large title, plain, with the conversation
       // actions on the right — no icon block.
       return Padding(

@@ -10,6 +10,7 @@ import 'package:server_box/data/provider/systemd.dart';
 import 'package:server_box/data/ssh/terminal_source.dart';
 import 'package:server_box/view/page/ssh/page/page.dart';
 import 'package:server_box/view/platform/ios_list.dart';
+import 'package:server_box/view/platform/ios_nav.dart';
 import 'package:server_box/view/widget/page_issue.dart';
 
 final class SystemdPage extends ConsumerStatefulWidget {
@@ -39,6 +40,22 @@ final class _SystemdPageState extends ConsumerState<SystemdPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (isIOS) {
+      return IosNavBar(
+        title: l10n.systemd,
+        actions: [
+          Tooltip(
+            message: libL10n.refresh,
+            child: CupertinoButton(
+              padding: const EdgeInsets.all(8),
+              onPressed: _refresh,
+              child: const Icon(CupertinoIcons.refresh, size: 21),
+            ),
+          ),
+        ],
+        body: _buildBody(),
+      );
+    }
     return Scaffold(
       appBar: CustomAppBar(
         centerTitle: true,
@@ -52,9 +69,7 @@ final class _SystemdPageState extends ConsumerState<SystemdPage> {
               ]
             : null,
       ),
-      // iOS pulls with the Cupertino refresh control inside the scroll view;
-      // everywhere else the Material one wraps it.
-      body: isIOS ? _buildBody() : RefreshIndicator(onRefresh: _refresh, child: _buildBody()),
+      body: RefreshIndicator(onRefresh: _refresh, child: _buildBody()),
     );
   }
 
@@ -148,6 +163,30 @@ final class _SystemdPageState extends ConsumerState<SystemdPage> {
 
   Widget _buildScopeFilterChips() {
     final currentFilter = ref.watch(_pro.select((p) => p.scopeFilter));
+    if (isIOS) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+        child: CupertinoSlidingSegmentedControl<SystemdScopeFilter>(
+          groupValue: currentFilter,
+          onValueChanged: (value) {
+            if (value != null) _notifier.setScopeFilter(value);
+          },
+          children: {
+            for (final filter in SystemdScopeFilter.values)
+              filter: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 6,
+                ),
+                child: Text(
+                  filter.displayName,
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ),
+          },
+        ),
+      );
+    }
     return Wrap(
       spacing: 8,
       children: SystemdScopeFilter.values.map((filter) {
@@ -232,6 +271,30 @@ final class _SystemdPageState extends ConsumerState<SystemdPage> {
   }
 
   Future<void> _showConfirmDialog(String cmd) async {
+    if (isIOS) {
+      final sure = await showCupertinoDialog<bool>(
+        context: context,
+        builder: (context) => CupertinoAlertDialog(
+          title: Text(libL10n.attention),
+          content: SingleChildScrollView(
+            child: SimpleMarkdown(data: '```shell\n$cmd\n```'),
+          ),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(libL10n.cancel),
+            ),
+            CupertinoDialogAction(
+              isDestructiveAction: true,
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(libL10n.ok),
+            ),
+          ],
+        ),
+      );
+      if (sure == true) _navigateToSsh(cmd);
+      return;
+    }
     final sure = await context.showRoundDialog(
       title: libL10n.attention,
       child: SimpleMarkdown(data: '```shell\n$cmd\n```'),

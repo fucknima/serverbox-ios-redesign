@@ -87,7 +87,7 @@ extension _IosList on _ServerPageState {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  IosControls.connDot(srv.conn),
+                  IosControls.connDot(context, srv.conn),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(

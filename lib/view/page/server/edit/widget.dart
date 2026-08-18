@@ -824,8 +824,9 @@ extension _IosWidgets on _ServerEditPageState {
     );
   }
 
-  /// One form field on the cell surface: a filled rounded box, label as
-  /// placeholder, no card anywhere.
+  /// One form field on the cell surface: no box of its own — the section is
+  /// the surface, and the row separators are what tell the fields apart, the
+  /// way an iOS settings form reads.
   Widget _iosField({
     required TextEditingController controller,
     required String label,
@@ -849,11 +850,8 @@ extension _IosWidgets on _ServerEditPageState {
         placeholderStyle: TextStyle(
           color: IosPalette.secondaryLabelByBrightness(isDark),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE9E9EB),
-          borderRadius: BorderRadius.circular(10),
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 9),
+        decoration: null,
       ),
     );
   }

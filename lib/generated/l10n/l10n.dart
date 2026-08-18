@@ -2579,6 +2579,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Quick actions'**
   String get quickActions;
+
+  /// No description provided for @localFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Local files'**
+  String get localFiles;
 }
 
 class _AppLocalizationsDelegate

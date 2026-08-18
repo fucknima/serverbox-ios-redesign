@@ -1341,6 +1341,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get quickActions => '快捷操作';
+
+  @override
+  String get localFiles => '本机文件';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).

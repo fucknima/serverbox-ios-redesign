@@ -1475,4 +1475,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get quickActions => 'Quick actions';
+
+  @override
+  String get localFiles => 'Local files';
 }

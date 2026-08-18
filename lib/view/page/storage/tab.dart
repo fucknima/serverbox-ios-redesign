@@ -1,9 +1,11 @@
 import 'dart:convert';
 
 import 'package:fl_lib/fl_lib.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:icons_plus/icons_plus.dart';
+import 'package:server_box/core/extension/context/locale.dart';
 import 'package:server_box/data/model/server/server_private_info.dart';
 import 'package:server_box/data/provider/app/session_requests.dart';
 import 'package:server_box/data/provider/server/all.dart';
@@ -14,6 +16,8 @@ import 'package:server_box/view/page/storage/local.dart';
 import 'package:server_box/view/page/storage/send_to.dart';
 import 'package:server_box/view/page/storage/server_file.dart';
 import 'package:server_box/view/page/storage/sftp.dart';
+import 'package:server_box/view/platform/ios_list.dart';
+import 'package:server_box/view/platform/ios_nav.dart';
 import 'package:server_box/view/widget/empty_pane.dart';
 import 'package:server_box/view/widget/pane_settings.dart';
 
@@ -260,46 +264,126 @@ class _FileTabPageState extends ConsumerState<FileTabPage>
   }
 
   Widget _buildSessions(bool split) {
+    final sessionView = SessionTabsView<FileSession>(
+      controller: _sessions,
+      // Page 0 is the picker's on one column. Beside a rail it is the empty
+      // surface, and not the picker: the rail is already that list.
+      leading: split ? const EmptyPane(icon: Icons.folder_open) : _picker,
+      builder: (_, tab) {
+        final session = tab.data;
+        void onPathChanged(String path) {
+          if (session.currentPath == path) return;
+          session.currentPath = path;
+          _save();
+        }
+
+        return switch (session) {
+          LocalFileSession() => LocalFilePage(
+            key: ValueKey(tab.id),
+            args: LocalFilePageArgs(
+              initDir: session.initialPath,
+              actionsSink: session.actions,
+              onPathChanged: onPathChanged,
+            ),
+          ),
+          ServerFileSession(:final spi) => ServerFilePage(
+            key: ValueKey(tab.id),
+            args: SftpPageArgs(
+              spi: spi,
+              initPath: session.initialPath,
+              actionsSink: session.actions,
+              onPathChanged: onPathChanged,
+            ),
+          ),
+        };
+      },
+    );
+
+    // iPhone: one session header instead of the desktop tab strip.
+    if (isIOS && !split) {
+      return Scaffold(appBar: _iosSessionBar, body: sessionView);
+    }
+
     return Scaffold(
       // With a rail beside it there is nothing left for a strip to do: the
       // rail switches sessions and starts them, so all the bar has to say is
       // which one is on screen.
       appBar: split ? _sessionBar : _tabBar,
-      body: SessionTabsView<FileSession>(
-        controller: _sessions,
-        // Page 0 is the picker's on one column. Beside a rail it is the empty
-        // surface, and not the picker: the rail is already that list.
-        leading: split
-            ? const EmptyPane(icon: Icons.folder_open)
-            : _picker,
-        builder: (_, tab) {
-          final session = tab.data;
-          void onPathChanged(String path) {
-            if (session.currentPath == path) return;
-            session.currentPath = path;
-            _save();
-          }
+      body: sessionView,
+    );
+  }
 
-          return switch (session) {
-            LocalFileSession() => LocalFilePage(
-              key: ValueKey(tab.id),
-              args: LocalFilePageArgs(
-                initDir: session.initialPath,
-                actionsSink: session.actions,
-                onPathChanged: onPathChanged,
-              ),
+  PreferredSizeWidget get _iosSessionBar => PreferredSizeListenBuilder(
+    listenable: _sessions,
+    builder: () {
+      final current = _sessions.current;
+      final isPicker = _sessions.index == 0;
+      final sessionCount = _sessions.tabs.length;
+      return IosSessionHeader(
+        title: current?.name ?? libL10n.file,
+        onTitleTap: isPicker || sessionCount <= 1
+            ? null
+            : _showIosSessionSwitch,
+        actions: isPicker
+            ? [
+                _iosIconBtn(
+                  CupertinoIcons.search,
+                  libL10n.search,
+                  _showSearch,
+                ),
+                _iosIconBtn(CupertinoIcons.add, libL10n.add, () {
+                  ServerEditPage.route.go(context);
+                }),
+              ]
+            // The browser publishes its own toolbar (search / sort / more)
+            // through the session's actions sink; the header shows them.
+            : [_SessionActions(sessions: _sessions)],
+      );
+    },
+  );
+
+  /// Switch the open browser from the header, iOS-style: an action sheet of
+  /// the sessions, the picker as the way back to it.
+  void _showIosSessionSwitch() {
+    final names = _sessions.names;
+    showCupertinoModalPopup(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
+        title: Text(libL10n.file),
+        actions: [
+          for (var i = 0; i < names.length; i++)
+            CupertinoActionSheetAction(
+              isDefaultAction: _sessions.index == i + 1,
+              onPressed: () {
+                Navigator.pop(context);
+                _sessions.select(i + 1);
+              },
+              child: Text(names[i]),
             ),
-            ServerFileSession(:final spi) => ServerFilePage(
-              key: ValueKey(tab.id),
-              args: SftpPageArgs(
-                spi: spi,
-                initPath: session.initialPath,
-                actionsSink: session.actions,
-                onPathChanged: onPathChanged,
-              ),
-            ),
-          };
-        },
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _sessions.select(0);
+            },
+            child: Text(libL10n.add),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(context),
+          child: Text(libL10n.cancel),
+        ),
+      ),
+    );
+  }
+
+  /// A plain Cupertino header action.
+  Widget _iosIconBtn(IconData icon, String tooltip, VoidCallback onTap) {
+    return Tooltip(
+      message: tooltip,
+      child: CupertinoButton(
+        padding: const EdgeInsets.all(8),
+        onPressed: onTap,
+        child: Icon(icon, size: 21),
       ),
     );
   }
@@ -520,6 +604,43 @@ class _PickPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(serversProvider);
+    if (isIOS) {
+      final servers = [
+        for (final id in state.serverOrder)
+          if (state.servers[id] case final spi? when _canBrowse(ref, spi)) spi,
+      ];
+      return IosGroupedList(
+        children: [
+          IosSection(
+            header: libL10n.device,
+            children: [
+              IosRow(
+                title: libL10n.device,
+                subtitle: l10n.localFiles,
+                leading: const IosSettingsIcon(CupertinoIcons.desktopcomputer),
+                chevron: true,
+                onTap: onLocal,
+              ),
+            ],
+          ),
+          if (servers.isNotEmpty)
+            IosSection(
+              header: libL10n.server,
+              children: [
+                for (final spi in servers)
+                  IosRow(
+                    key: ValueKey(spi.id),
+                    title: spi.name,
+                    subtitle: spi.displayAddr,
+                    leading: const IosSettingsIcon(CupertinoIcons.square_stack_3d_up),
+                    chevron: true,
+                    onTap: () => onServer(spi),
+                  ),
+              ],
+            ),
+        ],
+      );
+    }
     return MasonryList(
       columnWidth: _kColumnWidth,
       children: [

@@ -16,13 +16,14 @@ abstract final class IosControls {
     );
   }
 
-  /// A status dot driven by a server connection state.
-  static Widget connDot(ServerConn conn, {double size = 8}) {
+  /// A status dot driven by a server connection state, in the system colors
+  /// for the current brightness.
+  static Widget connDot(BuildContext context, ServerConn conn, {double size = 8}) {
     final color = switch (conn) {
-      ServerConn.finished => IosPalette.greenLight,
-      ServerConn.failed => IosPalette.redLight,
+      ServerConn.finished => IosPalette.green(context),
+      ServerConn.failed => IosPalette.red(context),
       ServerConn.connecting || ServerConn.loading || ServerConn.connected =>
-        IosPalette.orangeLight,
+        IosPalette.orange(context),
       ServerConn.disconnected => null,
     };
     return color == null
@@ -77,7 +78,7 @@ abstract final class IosControls {
   static Widget chevron(BuildContext context, {Color? color}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Icon(
-      Icons.chevron_right,
+      CupertinoIcons.chevron_right,
       size: 20,
       color: color ?? IosPalette.grayByBrightness(isDark, level: 2),
     );

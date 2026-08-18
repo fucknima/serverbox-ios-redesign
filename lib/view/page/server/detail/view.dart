@@ -166,6 +166,56 @@ class _ServerDetailPageState extends ConsumerState<ServerDetailPage>
         si.conn == server_model.ServerConn.connected ||
         si.conn == server_model.ServerConn.loading;
 
+    if (isIOS) {
+      // The same Cupertino chrome as the healthy page: this state is one
+      // page, not a second kind of page that suddenly looks Material.
+      return IosNavPage(
+        title: si.spi.name,
+        actions: [
+          _IosNavAction(
+            icon: CupertinoIcons.share,
+            tooltip: libL10n.share,
+            onTap: () => _showShareQr(si.spi),
+          ),
+        ],
+        body: ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          children: [
+            if (err != null)
+              CardX(
+                child: Padding(
+                  padding: const EdgeInsets.all(13),
+                  child: SimpleMarkdown(data: _errMarkdown(err)),
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.all(13),
+                child: Text(
+                  // "Empty" is what a server that answered and had nothing to
+                  // say would be. One that has not answered yet is connecting,
+                  // and saying so is the difference between waiting and
+                  // wondering.
+                  busy ? l10n.waitConnection : libL10n.empty,
+                  style: UIs.textGrey,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            UIs.height13,
+            // Centred, or the column stretches it into something that reads
+            // as a list row rather than a button.
+            Center(
+              child: busy
+                  ? IosControls.loading(radius: 14)
+                  : CupertinoButton.filled(
+                      onPressed: () => _reconnect(si),
+                      child: Text(libL10n.retry),
+                    ),
+            ),
+          ],
+        ),
+      );
+    }
     return Scaffold(
       appBar: _buildAppBar(si),
       // Scrolls, and shows the error in full. The card elsewhere on this page
@@ -200,24 +250,17 @@ class _ServerDetailPageState extends ConsumerState<ServerDetailPage>
           // a list row rather than a button.
           Center(
             child: busy
-                ? (isIOS
-                      ? IosControls.loading(radius: 14)
-                      : SizedLoading.medium)
-                : (isIOS
-                      ? CupertinoButton.filled(
-                          onPressed: () => _reconnect(si),
-                          child: Text(libL10n.retry),
-                        )
-                      : Btn.elevated(
-                          text: libL10n.retry,
-                          icon: const Icon(Icons.refresh, size: 18),
-                          // The icon variant lays its row out at max size, so
-                          // without this the button fills whatever it is given
-                          // and reads as a list row.
-                          mainAxisSize: MainAxisSize.min,
-                          gap: 8,
-                          onTap: () => _reconnect(si),
-                        )),
+                ? SizedLoading.medium
+                : Btn.elevated(
+                    text: libL10n.retry,
+                    icon: const Icon(Icons.refresh, size: 18),
+                    // The icon variant lays its row out at max size, so
+                    // without this the button fills whatever it is given
+                    // and reads as a list row.
+                    mainAxisSize: MainAxisSize.min,
+                    gap: 8,
+                    onTap: () => _reconnect(si),
+                  ),
           ),
         ],
       ),

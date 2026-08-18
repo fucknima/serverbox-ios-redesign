@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:fl_lib/fl_lib.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:server_box/core/extension/context/locale.dart';
@@ -12,6 +13,8 @@ import 'package:server_box/data/model/server/proc.dart';
 import 'package:server_box/data/model/server/server.dart';
 import 'package:server_box/data/model/server/system.dart';
 import 'package:server_box/data/provider/server/single.dart';
+import 'package:server_box/view/platform/ios_controls.dart';
+import 'package:server_box/view/platform/ios_nav.dart';
 
 const _compactBreakpoint = 700.0;
 const _rssBreakpoint = 840.0;
@@ -239,6 +242,63 @@ class _ProcessPageState extends ConsumerState<ProcessPage>
         ),
       );
     }
+    if (isIOS) {
+      return IosNavBar(
+        title: libL10n.process,
+        actions: [
+          if (parseIssue != null)
+            Tooltip(
+              message: _parseFailureMessage(parseIssue.failure),
+              child: CupertinoButton(
+                padding: const EdgeInsets.all(8),
+                onPressed: () => context.showRoundDialog(
+                  title: libL10n.error,
+                  child: Text(_parseFailureMessage(parseIssue.failure)),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Pfs.copy(parseIssue.diagnostics),
+                      child: Text(libL10n.copy),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  CupertinoIcons.exclamationmark_triangle,
+                  size: 20,
+                ),
+              ),
+            ),
+          Tooltip(
+            message: libL10n.sort,
+            child: CupertinoButton(
+              padding: const EdgeInsets.all(8),
+              onPressed: _showIosSortMenu,
+              child: const Icon(CupertinoIcons.sort_up, size: 21),
+            ),
+          ),
+          Tooltip(
+            message: libL10n.refresh,
+            child: CupertinoButton(
+              padding: const EdgeInsets.all(8),
+              onPressed: _isRefreshing
+                  ? null
+                  : () => _refresh(userTriggered: true),
+              child: _isRefreshing
+                  ? IosControls.loadingBox(dimension: 21, radius: 9)
+                  : const Icon(CupertinoIcons.refresh, size: 21),
+            ),
+          ),
+        ],
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            final layout = _ProcessLayout.fromWidth(
+              constraints.maxWidth,
+              _capabilities,
+            );
+            return _buildIosProcessBody(layout);
+          },
+        ),
+      );
+    }
     return Scaffold(
       appBar: CustomAppBar(
         centerTitle: true,
@@ -279,6 +339,90 @@ class _ProcessPageState extends ConsumerState<ProcessPage>
 }
 
 extension _ProcessPageStateWidgets on _ProcessPageState {
+  /// The iPhone body: pull-to-refresh via the Cupertino sliver control, the
+  /// process count as a light summary line above the table, sort and refresh
+  /// in the nav bar.
+  Widget _buildIosProcessBody(_ProcessLayout layout) {
+    Future<void> refresh() => _refresh(userTriggered: true);
+    if (!_hasLoaded && _result.procs.isEmpty) {
+      return Center(child: IosControls.loading(radius: 16));
+    }
+    if (_result.procs.isEmpty) {
+      return CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        slivers: [
+          CupertinoSliverRefreshControl(onRefresh: refresh),
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
+              child: Text(
+                _loadErrorMessage ?? libL10n.empty,
+                style: UIs.textGrey,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    final columns = _buildColumns(layout);
+    final scheme = Theme.of(context).colorScheme;
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
+      slivers: [
+        CupertinoSliverRefreshControl(onRefresh: refresh),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+            child: Text(
+              context.l10n.processCount(_result.procs.length),
+              style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
+            ),
+          ),
+        ),
+        SliverToBoxAdapter(child: _buildHeader(columns)),
+        SliverList.separated(
+          itemCount: _result.procs.length,
+          separatorBuilder: (_, _) =>
+              Divider(height: 1, color: Hairline.color(context)),
+          itemBuilder: (_, index) =>
+              _buildProcessRow(_result.procs[index], layout, columns),
+        ),
+      ],
+    );
+  }
+
+  /// The sort modes as an iOS action sheet.
+  void _showIosSortMenu() {
+    final modes = ProcSortMode.values
+        .where(_capabilities.supportsSort)
+        .toList(growable: false);
+    showCupertinoModalPopup(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
+        title: Text(libL10n.sort),
+        actions: [
+          for (final mode in modes)
+            CupertinoActionSheetAction(
+              isDefaultAction: mode == _procSortMode,
+              onPressed: () {
+                Navigator.pop(context);
+                _selectSort(mode);
+              },
+              child: Text(_sortLabel(mode)),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(context),
+          child: Text(libL10n.cancel),
+        ),
+      ),
+    );
+  }
+
   Widget _buildProcessBar(_ProcessLayout layout) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
@@ -548,17 +692,28 @@ extension _ProcessPageStateWidgets on _ProcessPageState {
             ],
             SizedBox(
               width: _actionWidth,
-              child: IconButton(
-                tooltip: '${libL10n.stop} ${libL10n.process}',
-                visualDensity: VisualDensity.compact,
-                constraints: const BoxConstraints.tightFor(
-                  width: 40,
-                  height: 40,
-                ),
-                color: theme.colorScheme.error,
-                icon: const Icon(Icons.stop_circle_outlined),
-                onPressed: _isRefreshing ? null : () => _confirmKill(proc),
-              ),
+              child: isIOS
+                  ? CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      onPressed:
+                          _isRefreshing ? null : () => _confirmKill(proc),
+                      child: Icon(
+                        CupertinoIcons.xmark_circle_fill,
+                        size: 20,
+                        color: theme.colorScheme.error,
+                      ),
+                    )
+                  : IconButton(
+                      tooltip: '${libL10n.stop} ${libL10n.process}',
+                      visualDensity: VisualDensity.compact,
+                      constraints: const BoxConstraints.tightFor(
+                        width: 40,
+                        height: 40,
+                      ),
+                      color: theme.colorScheme.error,
+                      icon: const Icon(Icons.stop_circle_outlined),
+                      onPressed: _isRefreshing ? null : () => _confirmKill(proc),
+                    ),
             ),
           ],
         ),

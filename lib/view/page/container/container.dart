@@ -19,6 +19,7 @@ import 'package:server_box/data/res/store.dart';
 import 'package:server_box/data/ssh/terminal_source.dart';
 import 'package:server_box/view/page/container/resource_views.dart';
 import 'package:server_box/view/page/ssh/page/page.dart';
+import 'package:server_box/view/platform/ios_nav.dart';
 import 'package:server_box/view/widget/page_columns.dart';
 import 'package:server_box/view/widget/page_issue.dart';
 
@@ -79,10 +80,27 @@ extension _ContainerPageWidgets on _ContainerPageState {
       _provider.select((state) => state.items != null),
     );
 
+    if (isIOS) {
+      // The iPhone chrome: a Cupertino page with the segmented control under
+      // the nav bar instead of a Material TabBar under a Material bar.
+      return IosNavBar(
+        title: libL10n.container,
+        actions: [_buildIosAddAction()],
+        body: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+              child: _buildIosSegmentedControl(),
+            ),
+            Expanded(child: _buildMain()),
+          ],
+        ),
+      );
+    }
     return Scaffold(
       appBar: _buildAppBar(),
       body: SafeArea(child: _buildMain()),
-      floatingActionButton: hasItems && !isIOS ? _buildFAB() : null,
+      floatingActionButton: hasItems ? _buildFAB() : null,
     );
   }
 
@@ -90,19 +108,15 @@ extension _ContainerPageWidgets on _ContainerPageState {
     return CustomAppBar(
       centerTitle: true,
       title: TwoLineText(up: libL10n.container, down: widget.args.spi.name),
-      // iOS adds containers from the bar; the FAB is the non-iOS affordance.
-      actions: isIOS ? [_buildIosAddAction()] : null,
-      bottom: isIOS
-          ? _buildIosSegmented()
-          : TabBar(
-              controller: _tabCtrl,
-              dividerHeight: 0,
-              tabAlignment: TabAlignment.center,
-              isScrollable: true,
-              tabs: _ContainerTabs.values
-                  .map((e) => Tab(text: e.i18n))
-                  .toList(growable: false),
-            ),
+      bottom: TabBar(
+        controller: _tabCtrl,
+        dividerHeight: 0,
+        tabAlignment: TabAlignment.center,
+        isScrollable: true,
+        tabs: _ContainerTabs.values
+            .map((e) => Tab(text: e.i18n))
+            .toList(growable: false),
+      ),
     );
   }
 
@@ -115,44 +129,32 @@ extension _ContainerPageWidgets on _ContainerPageState {
         if (_tabCtrl.index != _ContainerTabs.ps.index) {
           return const SizedBox.shrink();
         }
-        return IconButton(
-          icon: const Icon(CupertinoIcons.add),
-          tooltip: libL10n.add,
-          onPressed: _containerActionsBusy ? null : () => _showAddFAB(),
+        return Tooltip(
+          message: libL10n.add,
+          child: CupertinoButton(
+            padding: const EdgeInsets.all(8),
+            onPressed: _containerActionsBusy ? null : () => _showAddFAB(),
+            child: const Icon(CupertinoIcons.add, size: 22),
+          ),
         );
       },
     );
   }
 
   /// The iOS segmented control over the same three tabs.
-  PreferredSizeWidget _buildIosSegmented() {
-    return PreferredSize(
-      preferredSize: const Size.fromHeight(56),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
-          child: CupertinoSlidingSegmentedControl<int>(
-            groupValue: _tabCtrl.index,
-            onValueChanged: (value) {
-              if (value != null) _tabCtrl.animateTo(value);
-            },
-            children: {
-              for (final tab in _ContainerTabs.values)
-                tab.index: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 6,
-                  ),
-                  child: Text(
-                    tab.i18n,
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                ),
-            },
+  Widget _buildIosSegmentedControl() {
+    return CupertinoSlidingSegmentedControl<int>(
+      groupValue: _tabCtrl.index,
+      onValueChanged: (value) {
+        if (value != null) _tabCtrl.animateTo(value);
+      },
+      children: {
+        for (final tab in _ContainerTabs.values)
+          tab.index: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            child: Text(tab.i18n, style: const TextStyle(fontSize: 13)),
           ),
-        ),
-      ),
+      },
     );
   }
 
