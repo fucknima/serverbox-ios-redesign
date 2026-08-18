@@ -299,7 +299,17 @@ final class _SettingsList extends StatelessWidget {
   final List<SettingsNode> nodes;
   final void Function(SettingsNode node) onTap;
 
-  const _SettingsList({required this.nodes, required this.onTap});
+  /// The maintenance actions, shown at the bottom on iOS: logs, and clearing
+  /// every setting.
+  final VoidCallback? onLogs;
+  final VoidCallback? onClearAll;
+
+  const _SettingsList({
+    required this.nodes,
+    required this.onTap,
+    this.onLogs,
+    this.onClearAll,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -318,7 +328,8 @@ final class _SettingsList extends StatelessWidget {
     );
   }
 
-  /// The Apple Settings look: rows in grouped sections with tinted icons.
+  /// The Apple Settings look: rows in grouped sections with tinted icons,
+  /// destructive maintenance at the very bottom.
   Widget _buildIos(BuildContext context) {
     const groups = <String, List<String>>{
       'main': ['app', 'server', 'terminal', 'file'],
@@ -346,6 +357,26 @@ final class _SettingsList extends StatelessWidget {
                   ),
             ],
           ),
+        if (onLogs != null || onClearAll != null) ...[
+          const SizedBox(height: 8),
+          IosSection(
+            children: [
+              if (onLogs != null)
+                IosRow(
+                  title: libL10n.logs,
+                  leading: const IosSettingsIcon(Icons.article_outlined),
+                  chevron: true,
+                  onTap: onLogs,
+                ),
+              if (onClearAll != null)
+                IosRow(
+                  title: '${libL10n.delete} ${libL10n.all} ${libL10n.setting}',
+                  titleColor: IosPalette.redLight,
+                  onTap: onClearAll,
+                ),
+            ],
+          ),
+        ],
       ],
     );
   }

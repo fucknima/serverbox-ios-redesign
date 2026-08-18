@@ -148,6 +148,7 @@ class _SftpPageState extends ConsumerState<SftpPage> {
             // A server's files start at the top. Anywhere lower would be a
             // sandbox this app cannot enforce anyway.
             root: '/',
+            subtitle: widget.args.spi.name,
             initialPath: start.path,
             homePath: start.home,
             isPickDir: widget.args.isSelect,

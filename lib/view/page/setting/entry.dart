@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:fl_lib/fl_lib.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_highlight/theme_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -367,7 +368,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         leading: !wide && _path.isNotEmpty
             ? BackButton(onPressed: _onTabBack)
             : null,
-        actions: [
+        // iOS keeps the bar clean: logs and the destructive clear-all moved
+        // to the bottom of the settings list.
+        actions: isIOS ? null : [
           Btn.text(
             text: context.libL10n.logs,
             onTap: () => DebugPage.route.go(
@@ -413,6 +416,44 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
+  /// iOS bottom-row actions: logs, and clearing every setting after a
+  /// confirm, destructive and at the very end of the list.
+  void _onIosLogs() {
+    DebugPage.route.go(
+      context,
+      args: DebugPageArgs(
+        title: '${context.libL10n.logs}(${BuildData.build})',
+      ),
+    );
+  }
+
+  Future<void> _onIosClearAll() async {
+    final sure = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: Text(libL10n.attention),
+        content: Text(
+          libL10n.askContinue(
+            '${libL10n.delete} **${libL10n.all}** ${libL10n.setting}',
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(libL10n.cancel),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(libL10n.delete),
+          ),
+        ],
+      ),
+    );
+    if (sure != true) return;
+    _clearAllSettings();
+  }
+
   /// The levels, as pages of a navigator.
   ///
   /// Declarative rather than pushed by hand: [_path] already says which levels
@@ -435,7 +476,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           // What settings there are, which is where a narrow window starts.
           MaterialPage<void>(
             key: const ValueKey('root'),
-            child: _SettingsList(nodes: nodes, onTap: isIOS ? _onIosTab : _onTab),
+            child: _SettingsList(
+              nodes: nodes,
+              onTap: isIOS ? _onIosTab : _onTab,
+              onLogs: isIOS ? _onIosLogs : null,
+              onClearAll: isIOS ? _onIosClearAll : null,
+            ),
           ),
           for (final entered in _path)
             MaterialPage<void>(

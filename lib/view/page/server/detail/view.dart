@@ -13,6 +13,7 @@ import 'package:icons_plus/icons_plus.dart';
 import 'package:server_box/core/extension/context/locale.dart';
 import 'package:server_box/core/extension/server.dart';
 import 'package:server_box/core/route.dart';
+import 'package:server_box/data/model/app/menu/server_func.dart';
 import 'package:server_box/data/model/app/scripts/cmd_types.dart';
 import 'package:server_box/data/model/app/server_detail_card.dart';
 import 'package:server_box/data/model/server/amd.dart';
@@ -313,13 +314,15 @@ ${err.message ?? 'null'}
     );
   }
 
-  /// The iPhone layout: the same cards, as iOS grouped sections under a
-  /// large title, with the func bar floating over the bottom.
+  /// The iPhone layout: the same cards as iOS grouped sections under a large
+  /// title. The server's actions are one more grouped section that scrolls
+  /// with the page — nothing floats over the content.
   Widget _buildIosMainPage(ServerState si, bool buildFuncs) {
     final logo = _buildLogo(si);
     final children = <Widget>[
       ?logo,
       ?_buildErrCard(si),
+      if (buildFuncs) _buildIosQuickActions(si),
     ];
     for (final card in _cardsOrder) {
       final child = _cardBuildMap[ServerDetailCards.fromName(card)]
@@ -350,22 +353,12 @@ ${err.message ?? 'null'}
             }
           },
         ),
+        if (si.capabilities.terminal) _buildIosMoreMenu(si),
       ],
       controller: _scrollCtrl,
-      bottomBar: buildFuncs
-          ? HideOnScroll(
-              controller: _scrollCtrl,
-              child: _buildFuncBar(si),
-            )
-          : null,
       slivers: [
         SliverPadding(
-          padding: EdgeInsets.fromLTRB(
-            16,
-            4,
-            16,
-            buildFuncs ? _kFuncBarInset + 8 : 16,
-          ),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
           sliver: SliverList(
             delegate: SliverChildListDelegate(
               children.map((e) => e._wrapCard(context)).toList(),
@@ -373,6 +366,150 @@ ${err.message ?? 'null'}
           ),
         ),
       ],
+    );
+  }
+
+  /// The main quick actions as a scrolling section, three per row: terminal,
+  /// files, container, process, snippet, systemd. The rarer ones — port
+  /// forward, iperf, power — live behind the "…" in the nav bar.
+  Widget _buildIosQuickActions(ServerState si) {
+    const main = {
+      ServerFuncBtn.terminal,
+      ServerFuncBtn.files,
+      ServerFuncBtn.container,
+      ServerFuncBtn.process,
+      ServerFuncBtn.snippet,
+      ServerFuncBtn.systemd,
+    };
+    final funcs = ServerFuncBtns(
+      spi: si.spi,
+      granted: si.remoteAccess,
+    ).btnsWith(si.remoteAccess);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: IosPalette.secondaryGroupedBackgroundByBrightness(
+            Theme.of(context).brightness == Brightness.dark,
+          ),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: Text(
+                l10n.quickActions,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: IosPalette.secondaryLabelByBrightness(
+                    Theme.of(context).brightness == Brightness.dark,
+                  ),
+                ),
+              ),
+            ),
+            GridView.count(
+              crossAxisCount: 3,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 10),
+              mainAxisSpacing: 2,
+              crossAxisSpacing: 2,
+              childAspectRatio: 1.9,
+              children: [
+                for (final btn in funcs.where(main.contains))
+                  Consumer(
+                    builder: (context, ref, _) => _buildIosQuickAction(
+                      btn,
+                      () => ServerFuncBtns(
+                        spi: si.spi,
+                        granted: si.remoteAccess,
+                      ).handleTap(btn, context, ref),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIosQuickAction(ServerFuncBtn btn, VoidCallback onTap) {
+    return CupertinoButton(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      onPressed: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(btn.icon, size: 22),
+          const SizedBox(height: 3),
+          Text(
+            btn.toStr,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 11),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// The "…" menu: everything a server can do that is not on the main grid.
+  Widget _buildIosMoreMenu(ServerState si) {
+    const main = {
+      ServerFuncBtn.terminal,
+      ServerFuncBtn.files,
+      ServerFuncBtn.container,
+      ServerFuncBtn.process,
+      ServerFuncBtn.snippet,
+      ServerFuncBtn.systemd,
+    };
+    return _IosNavAction(
+      icon: CupertinoIcons.ellipsis,
+      tooltip: libL10n.more,
+      onTap: () {
+        final funcs = ServerFuncBtns(
+          spi: si.spi,
+          granted: si.remoteAccess,
+        ).btnsWith(si.remoteAccess);
+        final rest = funcs.where((e) => !main.contains(e)).toList();
+        if (rest.isEmpty) return;
+        showCupertinoModalPopup(
+          context: context,
+          builder: (context) => CupertinoActionSheet(
+            title: Text(si.spi.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+            actions: [
+              for (final btn in rest)
+                CupertinoActionSheetAction(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    ServerFuncBtns(
+                      spi: si.spi,
+                      granted: si.remoteAccess,
+                    ).handleTap(btn, context, ref);
+                  },
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(btn.icon, size: 18),
+                      const SizedBox(width: 8),
+                      Text(btn.toStr),
+                    ],
+                  ),
+                ),
+            ],
+            cancelButton: CupertinoActionSheetAction(
+              onPressed: () => Navigator.pop(context),
+              child: Text(libL10n.cancel),
+            ),
+          ),
+        );
+      },
     );
   }
 

@@ -1338,6 +1338,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get emptyServersTip => '添加你的第一台服务器,开始监控 CPU、内存和网络。';
+
+  @override
+  String get quickActions => '快捷操作';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).

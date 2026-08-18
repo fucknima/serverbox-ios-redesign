@@ -430,5 +430,6 @@
   "macDmgImportedPartly": "已导入此前安装版本的数据。下载的文件仍在原处:{path}。",
   "dataRecovered": "部分本地数据无法读取,已重置。服务器和设置可能已丢失。",
   "emptyServersTitle": "暂无服务器",
-  "emptyServersTip": "添加你的第一台服务器,开始监控 CPU、内存和网络。"
+  "emptyServersTip": "添加你的第一台服务器,开始监控 CPU、内存和网络。",
+  "quickActions": "快捷操作"
 }

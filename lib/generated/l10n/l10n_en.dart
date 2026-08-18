@@ -1446,4 +1446,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get emptyServersTip =>
       'Add your first server to start monitoring CPU, memory and network.';
+
+  @override
+  String get quickActions => 'Quick actions';
 }

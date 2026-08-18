@@ -1,4 +1,5 @@
 import 'package:fl_lib/fl_lib.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:icons_plus/icons_plus.dart';
 import 'package:server_box/core/extension/context/locale.dart';
@@ -29,12 +30,13 @@ extension AppTabViewX on AppTab {
   }
 
   IconData get _iconData {
+    // Cupertino has no terminal glyph; the shell prompt is the closest read.
     return switch (this) {
-      AppTab.server => BoxIcons.bx_server,
-      AppTab.ssh => Icons.terminal_outlined,
-      AppTab.snippet => Icons.code_outlined,
-      AppTab.file => Icons.folder_outlined,
-      AppTab.agent => Icons.auto_awesome_outlined,
+      AppTab.server => CupertinoIcons.square_stack_3d_up,
+      AppTab.ssh => CupertinoIcons.chevron_left_slash_chevron_right,
+      AppTab.snippet => CupertinoIcons.doc_text,
+      AppTab.file => CupertinoIcons.folder,
+      AppTab.agent => CupertinoIcons.sparkles,
     };
   }
 

@@ -87,7 +87,7 @@ extension ServerFuncBtnsBuild on ServerFuncBtns {
     // `IconButton` with a `Text` beneath it left the word inert, so half of
     // what looks like a target did nothing when tapped.
     return InkWell(
-      onTap: () => _onTapMoreBtns(e, context, ref),
+      onTap: () => handleTap(e, context, ref),
       borderRadius: BorderRadius.circular(10),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
@@ -132,7 +132,10 @@ extension ServerFuncBtnsUtils on ServerFuncBtns {
 }
 
 extension ServerFuncBtnsActions on ServerFuncBtns {
-  void _onTapMoreBtns(
+  /// Opens what an entry points at. Public so an iOS layout that arranges
+  /// the entries itself (a grid in the page, a menu in the nav bar) runs the
+  /// exact same actions as the horizontal row.
+  void handleTap(
     ServerFuncBtn value,
     BuildContext context,
     WidgetRef ref,

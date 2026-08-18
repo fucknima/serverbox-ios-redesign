@@ -2573,6 +2573,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add your first server to start monitoring CPU, memory and network.'**
   String get emptyServersTip;
+
+  /// No description provided for @quickActions.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick actions'**
+  String get quickActions;
 }
 
 class _AppLocalizationsDelegate

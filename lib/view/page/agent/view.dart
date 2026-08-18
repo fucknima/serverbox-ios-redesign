@@ -1,4 +1,5 @@
 import 'package:fl_lib/fl_lib.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -132,7 +133,9 @@ class AgentHeaderActions extends ConsumerWidget {
             onPressed: session.isWorking
                 ? null
                 : () => showAgentHistorySheet(context),
-            icon: const Icon(Icons.history, size: agentHeaderIconSize),
+            icon: isIOS
+                ? const Icon(CupertinoIcons.clock, size: agentHeaderIconSize)
+                : const Icon(Icons.history, size: agentHeaderIconSize),
           ),
           IconButton(
             tooltip: context.l10n.askAiNewConversation,
@@ -141,7 +144,9 @@ class AgentHeaderActions extends ConsumerWidget {
             // app. `add_comment_outlined` is a speech bubble with a plus in
             // it, which at this size is mostly bubble and reads lighter than
             // the icons either side of it.
-            icon: const Icon(Icons.add, size: agentHeaderIconSize),
+            icon: isIOS
+                ? const Icon(CupertinoIcons.plus, size: agentHeaderIconSize)
+                : const Icon(Icons.add, size: agentHeaderIconSize),
           ),
         ],
         const _AdHocSessionsButton(),
@@ -453,6 +458,29 @@ class _AgentConversationViewState extends ConsumerState<AgentConversationView> {
 
   Widget _buildHeader(BuildContext context, ThemeData theme) {
     final compact = widget.compact;
+    if (isIOS && !compact) {
+      // iPhone tab header: the large title, plain, with the conversation
+      // actions on the right — no icon block.
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                context.l10n.agentTitle,
+                style: const TextStyle(
+                  fontSize: 34,
+                  fontWeight: FontWeight.bold,
+                  height: 1.1,
+                ),
+              ),
+            ),
+            AgentHeaderActions(showConversations: true),
+            ?widget.headerTrailing,
+          ],
+        ),
+      );
+    }
     return Padding(
       // Symmetric where the row ends with the title, so its ellipsis sits
       // the same distance from the edge as the content below it. The
@@ -541,6 +569,24 @@ class _AgentConversationViewState extends ConsumerState<AgentConversationView> {
   }
 
   Widget _toolChip(ThemeData theme, IconData icon, String label) {
+    if (isIOS) {
+      // A light filled block, no border: the iOS "system fill" look.
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16),
+            const SizedBox(width: 6),
+            Text(label, style: const TextStyle(fontSize: 13)),
+          ],
+        ),
+      );
+    }
     return Chip(
       avatar: Icon(icon, size: 17),
       label: Text(label),
@@ -1095,9 +1141,12 @@ class _AgentConversationViewState extends ConsumerState<AgentConversationView> {
                 return Container(
                   decoration: BoxDecoration(
                     color: theme.colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(18),
-                    // The same line as the rule directly above it.
-                    border: Border.all(color: Hairline.color(context)),
+                    borderRadius: BorderRadius.circular(isIOS ? 12 : 18),
+                    // The same line as the rule directly above it. iOS draws
+                    // the input as a plain filled box.
+                    border: isIOS
+                        ? null
+                        : Border.all(color: Hairline.color(context)),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
@@ -1159,22 +1208,57 @@ class _AgentConversationViewState extends ConsumerState<AgentConversationView> {
                         // to do to it is stop it, and a separate stop control
                         // elsewhere is one more place to look.
                         child: session.isWorking
-                            ? IconButton.filled(
-                                tooltip: libL10n.stop,
-                                onPressed: _notifier.stopWork,
-                                icon: const Icon(Icons.stop),
-                              )
+                            ? (isIOS
+                                  ? CupertinoButton(
+                                      padding: EdgeInsets.zero,
+                                      onPressed: _notifier.stopWork,
+                                      child: Icon(
+                                        CupertinoIcons.stop_circle_fill,
+                                        size: 30,
+                                        color: theme.colorScheme.primary,
+                                      ),
+                                    )
+                                  : IconButton.filled(
+                                      tooltip: libL10n.stop,
+                                      onPressed: _notifier.stopWork,
+                                      icon: const Icon(Icons.stop),
+                                    ))
                             : ValueListenableBuilder(
                                 valueListenable: _inputController,
-                                builder: (_, value, _) => IconButton.filled(
-                                  tooltip: context.l10n.askAiAgentSend,
-                                  onPressed:
+                                builder: (_, value, _) {
+                                  final canSend =
                                       canSendWhatever &&
-                                          value.text.trim().isNotEmpty
-                                      ? () => _submitPrompt(_inputController.text)
-                                      : null,
-                                  icon: const Icon(Icons.arrow_upward),
-                                ),
+                                      value.text.trim().isNotEmpty;
+                                  if (isIOS) {
+                                    return CupertinoButton(
+                                      padding: EdgeInsets.zero,
+                                      onPressed: canSend
+                                          ? () => _submitPrompt(
+                                                _inputController.text,
+                                              )
+                                          : null,
+                                      child: Icon(
+                                        CupertinoIcons.arrow_up_circle_fill,
+                                        size: 30,
+                                        color: canSend
+                                            ? theme.colorScheme.primary
+                                            : theme
+                                                .colorScheme
+                                                .onSurfaceVariant
+                                                .withValues(alpha: 0.4),
+                                      ),
+                                    );
+                                  }
+                                  return IconButton.filled(
+                                    tooltip: context.l10n.askAiAgentSend,
+                                    onPressed: canSend
+                                        ? () => _submitPrompt(
+                                              _inputController.text,
+                                            )
+                                        : null,
+                                    icon: const Icon(Icons.arrow_upward),
+                                  );
+                                },
                               ),
                       ),
                     ],

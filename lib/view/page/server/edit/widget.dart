@@ -669,27 +669,311 @@ extension _Widgets on _ServerEditPageState {
 
   Widget _buildDelBtn() {
     return IconButton(tooltip: libL10n.delete, 
-      onPressed: () async {
-        // The dialog answers; this — which is on the page — acts on the answer
-        // and then closes the page. Doing both from inside the button meant
-        // two pops in a row from a callback that can see two navigators: the
-        // dialog is on the root one, and this page may be inside a pane, so
-        // whichever `pop` was written first decided which of the two closed.
-        final confirmed = await context.showRoundDialog<bool>(
-          title: libL10n.attention,
-          child: Text(
-            libL10n.askContinue(
-              '${libL10n.delete} ${libL10n.server}(${spi!.name})',
-            ),
-          ),
-          actions: Btn.ok(red: true).toList,
-        );
-        if (confirmed != true || !mounted) return;
-        await ref.read(serversProvider.notifier).delServer(spi!.id);
-        if (!mounted) return;
-        context.pop(true);
-      },
+      onPressed: _confirmDelete,
       icon: const Icon(Icons.delete),
+    );
+  }
+}
+
+extension _IosWidgets on _ServerEditPageState {
+  /// The iPhone form: grouped sections under a standard nav bar, save in the
+  /// bar, delete at the very bottom. The values, controllers and save logic
+  /// are the same ones the Material form uses.
+  Widget _buildIosForm() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: _useMonitorHttp.listenVal((useHttp) {
+            return CupertinoSlidingSegmentedControl<bool>(
+              groupValue: useHttp,
+              onValueChanged: (v) {
+                if (v != null) _useMonitorHttp.value = v;
+              },
+              children: {
+                false: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 18, vertical: 5),
+                  child: Text('SSH', style: TextStyle(fontSize: 13)),
+                ),
+                true: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 18, vertical: 5),
+                  child: Text('Monitor HTTP', style: TextStyle(fontSize: 13)),
+                ),
+              },
+            );
+          }),
+        ),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+            children: [
+              IosSection(
+                header: libL10n.conn,
+                children: [
+                  _iosField(
+                    controller: _nameController,
+                    label: libL10n.name,
+                    node: _nameFocus,
+                    onSubmitted: (_) => _focusScope.requestFocus(_ipFocus),
+                  ),
+                  if (!_useMonitorHttp.value) ...[
+                    _iosField(
+                      controller: _ipController,
+                      label: libL10n.host,
+                      hint: 'example.com',
+                      node: _ipFocus,
+                      onSubmitted: (_) => _focusScope.requestFocus(_portFocus),
+                    ),
+                    _iosField(
+                      controller: _portController,
+                      label: libL10n.port,
+                      hint: '22',
+                      type: TextInputType.number,
+                      node: _portFocus,
+                      onSubmitted: (_) =>
+                          _focusScope.requestFocus(_usernameFocus),
+                    ),
+                    _iosField(
+                      controller: _usernameController,
+                      label: libL10n.user,
+                      hint: 'root',
+                      type: TextInputType.text,
+                      node: _usernameFocus,
+                      onSubmitted: (_) => _focusScope.requestFocus(_alterUrlFocus),
+                    ),
+                  ],
+                ],
+              ),
+              if (_useMonitorHttp.value)
+                IosSection(
+                  header: libL10n.network,
+                  children: [
+                    _iosField(
+                      controller: _monitorAddrCtrl,
+                      label: 'URL',
+                      hint: 'https://127.0.0.1:3770',
+                    ),
+                    _iosField(
+                      controller: _monitorUserCtrl,
+                      label: 'Monitor ${libL10n.user}',
+                    ),
+                    _iosField(
+                      controller: _monitorPwdCtrl,
+                      label: 'Monitor ${libL10n.pwd}',
+                      obscure: true,
+                    ),
+                    _monitorIgnoreCert.listenVal(
+                      (v) => IosSwitchRow(
+                        title: 'Monitor ${l10n.ignoreCert}',
+                        value: v,
+                        onChanged: (val) => _monitorIgnoreCert.value = val,
+                      ),
+                    ),
+                  ],
+                )
+              else
+                IosSection(
+                  header: l10n.keyAuth,
+                  children: [
+                    _keyIdx.listenVal(
+                      (v) => IosSwitchRow(
+                        title: l10n.keyAuth,
+                        value: v != null,
+                        onChanged: (val) => _keyIdx.value = val ? -1 : null,
+                      ),
+                    ),
+                    if (_keyIdx.value != null) _buildIosKeyPickerRow(),
+                    _iosField(
+                      controller: _passwordController,
+                      label: libL10n.pwd,
+                      obscure: true,
+                      onSubmitted: (_) => _onSave(),
+                    ),
+                  ],
+                ),
+              IosSection(
+                header: libL10n.setting,
+                children: [
+                  _autoConnect.listenVal(
+                    (v) => IosSwitchRow(
+                      title: l10n.autoConnect,
+                      value: v,
+                      onChanged: (val) => _autoConnect.value = val,
+                    ),
+                  ),
+                  _buildIosTagRow(),
+                ],
+              ),
+              IosSection(children: [_buildMore()]),
+              if (spi != null) ...[
+                const SizedBox(height: 20),
+                IosSection(
+                  children: [
+                    IosRow(
+                      title: '${libL10n.delete} ${libL10n.server}',
+                      titleColor: IosPalette.redLight,
+                      onTap: _confirmDelete,
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// One form field on the cell surface: a filled rounded box, label as
+  /// placeholder, no card anywhere.
+  Widget _iosField({
+    required TextEditingController controller,
+    required String label,
+    String? hint,
+    TextInputType? type,
+    bool obscure = false,
+    FocusNode? node,
+    void Function(String)? onSubmitted,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 7, 16, 7),
+      child: CupertinoTextField(
+        controller: controller,
+        focusNode: node,
+        obscureText: obscure,
+        keyboardType: type,
+        autocorrect: false,
+        onSubmitted: onSubmitted,
+        placeholder: label,
+        placeholderStyle: TextStyle(
+          color: IosPalette.secondaryLabelByBrightness(isDark),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE9E9EB),
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIosKeyPickerRow() {
+    final pkis = ref.read(privateKeyProvider).keys;
+    final idx = _keyIdx.value;
+    final selected = idx != null && idx >= 0 && idx < pkis.length
+        ? pkis[idx]
+        : null;
+    return IosRow(
+      title: l10n.privateKey,
+      subtitle: selected?.id,
+      chevron: true,
+      onTap: _showIosKeyPicker,
+    );
+  }
+
+  Future<void> _showIosKeyPicker() async {
+    final pkis = ref.read(privateKeyProvider).keys;
+    final picked = await showCupertinoModalPopup<int>(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
+        title: Text(l10n.privateKey),
+        actions: [
+          for (var i = 0; i < pkis.length; i++)
+            CupertinoActionSheetAction(
+              isDefaultAction: _keyIdx.value == i,
+              onPressed: () => Navigator.pop(context, i),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_keyIdx.value == i) ...[
+                    const Icon(CupertinoIcons.checkmark, size: 18),
+                    const SizedBox(width: 8),
+                  ],
+                  Text(pkis[i].id),
+                ],
+              ),
+            ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              PrivateKeyEditPage.route.go(context);
+            },
+            child: Text(libL10n.add),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(context),
+          child: Text(libL10n.cancel),
+        ),
+      ),
+    );
+    if (picked != null) _keyIdx.value = picked;
+  }
+
+  Widget _buildIosTagRow() {
+    final allTags = ref.watch(serversProvider).tags;
+    return _tags.listenVal(
+      (vals) => IosRow(
+        title: libL10n.tag,
+        subtitle: vals.isEmpty ? null : vals.join(', '),
+        leading: const IosSettingsIcon(CupertinoIcons.tag),
+        chevron: true,
+        onTap: () => _showIosTagPicker(allTags),
+      ),
+    );
+  }
+
+  Future<void> _showIosTagPicker(Set<String> allTags) async {
+    final allTags_ = {...allTags, ..._tags.value}.toList();
+    final res = await context.showPickDialog(
+      items: allTags_,
+      initial: _tags.value.toList(),
+      clearable: true,
+      actions: [
+        TextButton(
+          onPressed: () {
+            context.popDialog();
+            _tags.value = {};
+          },
+          child: Text(libL10n.clear),
+        ),
+        TextButton(
+          onPressed: () => context.popDialog(true),
+          child: Text(libL10n.ok),
+        ),
+      ],
+    );
+    if (res == null) return;
+    _tags.value = res.cast<String>().toSet();
+  }
+
+  /// The delete flow, shared by the bar's bin and the iOS bottom row: the
+  /// dialog answers, this — which is on the page — acts and closes it.
+  Future<void> _confirmDelete() async {
+    final confirmed = await context.showRoundDialog<bool>(
+      title: libL10n.attention,
+      child: Text(
+        libL10n.askContinue(
+          '${libL10n.delete} ${libL10n.server}(${spi!.name})',
+        ),
+      ),
+      actions: Btn.ok(red: true).toList,
+    );
+    if (confirmed != true || !mounted) return;
+    await ref.read(serversProvider.notifier).delServer(spi!.id);
+    if (!mounted) return;
+    context.pop(true);
+  }
+
+  Widget _buildIosDiscoverBtn() {
+    return Tooltip(
+      message: l10n.discoverSshServers,
+      child: CupertinoButton(
+        padding: const EdgeInsets.all(8),
+        onPressed: _onTapDiscover,
+        child: const Icon(CupertinoIcons.antenna_radiowaves_left_right, size: 22),
+      ),
     );
   }
 }

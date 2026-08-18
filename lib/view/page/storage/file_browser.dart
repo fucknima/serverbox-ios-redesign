@@ -21,6 +21,7 @@ import 'package:server_box/view/page/storage/send_to.dart';
 import 'package:server_box/view/page/storage/transfer_announce.dart';
 import 'package:server_box/view/platform/ios_controls.dart';
 import 'package:server_box/view/platform/ios_list.dart';
+import 'package:server_box/view/platform/ios_nav.dart';
 import 'package:server_box/view/platform/ios_palette.dart';
 import 'package:server_box/view/widget/omit_start_text.dart';
 import 'package:server_box/view/widget/page_issue.dart';
@@ -57,6 +58,7 @@ abstract interface class BrowsePathHistory {
 class FileBrowserArgs {
   const FileBrowserArgs({
     required this.backend,
+    this.subtitle,
     required this.root,
     this.initialPath,
     this.homePath,
@@ -76,6 +78,10 @@ class FileBrowserArgs {
   });
 
   final FileBackend backend;
+
+  /// A second line under the large title (the server the directory belongs
+  /// to), iOS only.
+  final String? subtitle;
 
   /// The furthest up this browser goes.
   final String root;
@@ -906,6 +912,15 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage>
     final sink = widget.args.actionsSink;
     if (sink == null) {
       final title = _path.name;
+      if (isIOS) {
+        return IosNavPage(
+          title: title,
+          subtitle: widget.args.subtitle,
+          actions: _buildIosActions(),
+          onRefresh: refresh,
+          body: body,
+        );
+      }
       return Scaffold(
         appBar: CustomAppBar(
           title: AnimatedSwitcher(
@@ -927,8 +942,11 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage>
     return Scaffold(body: body, bottomNavigationBar: _buildBottom());
   }
 
-  Widget _buildBottom() {
+  Widget? _buildBottom() {
     if (_selecting) return _buildSelectionBar();
+    // iPhone keeps only the global tab bar; the path and the actions moved
+    // into the large title and its menu.
+    if (isIOS) return null;
     // On iOS the toolbar buttons are plain Cupertino icons; everywhere else
     // the labeled Material buttons.
     final children = isIOS
@@ -1772,6 +1790,79 @@ class _InlineSearchState extends State<_InlineSearch> {
           ),
         ),
         ],
+      ),
+    );
+  }
+}
+
+extension _IosFileChrome on _FileBrowserPageState {
+  /// The nav-bar actions on iPhone: sort, search, and the "…" menu holding
+  /// what the bottom toolbar used to.
+  List<Widget> _buildIosActions() {
+    return [
+      _buildViewBtn(),
+      Tooltip(
+        message: libL10n.search,
+        child: CupertinoButton(
+          padding: const EdgeInsets.all(8),
+          onPressed: _showSearch,
+          child: const Icon(CupertinoIcons.search, size: 22),
+        ),
+      ),
+      Tooltip(
+        message: libL10n.more,
+        child: CupertinoButton(
+          padding: const EdgeInsets.all(8),
+          onPressed: _showIosMoreMenu,
+          child: const Icon(CupertinoIcons.ellipsis, size: 22),
+        ),
+      ),
+    ];
+  }
+
+  /// New folder / new file / upload / goto / home, as an iOS action sheet.
+  Future<void> _showIosMoreMenu() async {
+    final home = widget.args.homePath;
+    await showCupertinoModalPopup(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
+        title: Text(_path.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+        actions: [
+          for (final action in _createActions)
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.pop(context);
+                action.onTap();
+              },
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(action.icon, size: 18),
+                  const SizedBox(width: 8),
+                  Text(action.text),
+                ],
+              ),
+            ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _goto();
+            },
+            child: Text(l10n.goto),
+          ),
+          if (home != null)
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.pop(context);
+                goTo(home);
+              },
+              child: Text(l10n.homeDir),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(context),
+          child: Text(libL10n.cancel),
+        ),
       ),
     );
   }

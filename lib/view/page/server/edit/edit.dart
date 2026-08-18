@@ -27,6 +27,9 @@ import 'package:server_box/data/res/store.dart';
 import 'package:server_box/data/store/server.dart';
 import 'package:server_box/view/page/private_key/edit.dart';
 import 'package:server_box/view/page/server/custom_cmds.dart';
+import 'package:server_box/view/platform/ios_list.dart';
+import 'package:server_box/view/platform/ios_nav.dart';
+import 'package:server_box/view/platform/ios_palette.dart';
 import 'package:server_box/view/widget/page_columns.dart';
 import 'package:server_box/view/widget/ssh_discovery/dialog.dart';
 
@@ -178,6 +181,28 @@ class _ServerEditPageState extends ConsumerState<ServerEditPage>
 
   @override
   Widget build(BuildContext context) {
+    if (isIOS) {
+      // The iPhone form: save in the bar, discover beside it while adding,
+      // delete at the bottom of the form. No FAB, no Material bar.
+      return IosNavBar(
+        title: libL10n.edit,
+        actions: [
+          if (spi == null) _buildIosDiscoverBtn(),
+          Tooltip(
+            message: libL10n.save,
+            child: CupertinoButton(
+              padding: const EdgeInsets.all(8),
+              onPressed: _onSave,
+              child: const Icon(CupertinoIcons.checkmark, size: 22),
+            ),
+          ),
+        ],
+        body: GestureDetector(
+          onTap: () => _focusScope.unfocus(),
+          child: _buildIosForm(),
+        ),
+      );
+    }
     // The tip is about the form as a whole rather than any one field, so it
     // belongs beside the other page-level action rather than inside the
     // scrolling content, where it took a row of its own and moved away.
@@ -188,13 +213,6 @@ class _ServerEditPageState extends ConsumerState<ServerEditPage>
       if (spi == null) _buildDiscoverBtn(),
       _buildWriteScriptTip(),
       if (spi != null) _buildDelBtn(),
-      // iOS saves from the bar; the FAB is the non-iOS affordance.
-      if (isIOS)
-        IconButton(
-          icon: const Icon(CupertinoIcons.checkmark),
-          tooltip: libL10n.save,
-          onPressed: _onSave,
-        ),
     ];
 
     return Scaffold(
@@ -203,7 +221,7 @@ class _ServerEditPageState extends ConsumerState<ServerEditPage>
         onTap: () => _focusScope.unfocus(),
         child: _buildForm(),
       ),
-      floatingActionButton: isIOS ? null : _buildFAB(),
+      floatingActionButton: _buildFAB(),
     );
   }
 

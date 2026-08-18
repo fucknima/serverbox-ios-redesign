@@ -14,6 +14,7 @@ class IosNavPage extends StatelessWidget {
   const IosNavPage({
     super.key,
     required this.title,
+    this.subtitle,
     this.leading,
     this.actions,
     this.body,
@@ -25,6 +26,10 @@ class IosNavPage extends StatelessWidget {
   });
 
   final String title;
+
+  /// A second, smaller line under the large title (e.g. the server a
+  /// directory belongs to).
+  final String? subtitle;
   final Widget? leading;
   final List<Widget>? actions;
   final Widget? body;
@@ -48,7 +53,7 @@ class IosNavPage extends StatelessWidget {
           : null,
       slivers: [
         CupertinoSliverNavigationBar(
-          largeTitle: Text(title),
+          largeTitle: _buildLargeTitle(context),
           leading:
               leading ??
               (canPop
@@ -83,6 +88,29 @@ class IosNavPage extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildLargeTitle(BuildContext context) {
+    final subtitle = this.subtitle;
+    if (subtitle == null) return Text(title);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(title),
+        const SizedBox(height: 2),
+        Text(
+          subtitle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 13,
+            color: IosPalette.secondaryLabelByBrightness(isDark),
+          ),
+        ),
+      ],
     );
   }
 }

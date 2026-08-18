@@ -404,6 +404,11 @@ class _HomePageState extends ConsumerState<HomePage>
     if (index < 0 || index >= _tabs.length) return;
     _selectIndex.value = index;
     _tabIndex.put(index);
+    // iOS tab bars switch instantly; the 677ms slide is a Material habit.
+    if (isIOS) {
+      _pageController.jumpToPage(index);
+      return;
+    }
     _switchingPage = true;
     _pageController.animateToPage(
       index,
