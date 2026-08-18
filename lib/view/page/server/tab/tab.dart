@@ -13,6 +13,7 @@ import 'package:server_box/core/route.dart';
 import 'package:server_box/data/model/app/error.dart';
 import 'package:server_box/data/model/app/net_view.dart';
 import 'package:server_box/data/model/app/scripts/cmd_types.dart';
+import 'package:server_box/data/model/app/scripts/shell_func.dart';
 import 'package:server_box/data/model/server/server.dart';
 import 'package:server_box/data/model/server/server_private_info.dart';
 import 'package:server_box/data/model/server/try_limiter.dart';
@@ -26,6 +27,9 @@ import 'package:server_box/view/page/server/connection_stats.dart';
 import 'package:server_box/view/page/server/detail/view.dart';
 import 'package:server_box/view/page/server/edit/edit.dart';
 import 'package:server_box/view/page/setting/entry.dart';
+import 'package:server_box/view/platform/ios_controls.dart';
+import 'package:server_box/view/platform/ios_nav.dart';
+import 'package:server_box/view/platform/ios_palette.dart';
 import 'package:server_box/view/widget/pane_settings.dart';
 import 'package:server_box/view/widget/percent_circle.dart';
 import 'package:server_box/view/widget/server_power.dart';
@@ -33,6 +37,7 @@ import 'package:server_box/view/widget/server_power.dart';
 part 'card_stat.dart';
 part 'content.dart';
 part 'flight.dart';
+part 'ios_list.dart';
 part 'landscape.dart';
 part 'pane_list.dart';
 part 'top_bar.dart';
@@ -184,6 +189,12 @@ class _ServerPageState extends ConsumerState<ServerPage>
   }
 
   Widget _buildPortrait() {
+    // iPhone: the iOS grouped list. iPad keeps the adaptive panes — the rail
+    // beside the detail pane is the same information in a column, and the
+    // pane is where the detail page already lives on wide screens.
+    if (isIOS && MediaQuery.sizeOf(context).width < 600) {
+      return _buildIosList();
+    }
     // Watch serverOrder, tags, and servers to ensure filtered view rebuilds
     // when individual server tags change without affecting the global tag set
     final serverOrder = ref.watch(serversProvider.select((s) => s.serverOrder));

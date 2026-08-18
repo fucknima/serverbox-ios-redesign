@@ -18,7 +18,7 @@ class IosNavPage extends StatelessWidget {
     this.slivers,
     this.bottomBar,
     this.background,
-    this.initialLarge = true,
+    this.onRefresh,
   });
 
   final String title;
@@ -28,22 +28,27 @@ class IosNavPage extends StatelessWidget {
   final List<Widget>? slivers;
   final Widget? bottomBar;
   final Color? background;
-  final bool initialLarge;
+  final Future<void> Function()? onRefresh;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = background ?? IosPalette.groupedBackgroundByBrightness(isDark);
     final textFactor = Stores.setting.textFactor.fetch();
-    final scaler = TextScaler.linear(textFactor);
 
     return MediaQuery.withClampedTextScaling(
-      textScaler: scaler,
+      minScaleFactor: textFactor,
+      maxScaleFactor: textFactor,
       child: Scaffold(
         backgroundColor: bg,
         bottomNavigationBar: bottomBar,
-        body: CustomScrollView(
-          slivers: [
+        body: _wrapRefresh(
+          context,
+          CustomScrollView(
+            physics: onRefresh != null
+                ? const AlwaysScrollableScrollPhysics()
+                : null,
+            slivers: [
             SliverAppBar.large(
               pinned: true,
               leading: leading,
@@ -84,7 +89,20 @@ class IosNavPage extends StatelessWidget {
               ...?slivers,
           ],
         ),
+        ),
       ),
+    );
+  }
+
+  Widget _wrapRefresh(BuildContext context, Widget scrollable) {
+    final onRefresh = this.onRefresh;
+    if (onRefresh == null) return scrollable;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return RefreshIndicator(
+      color: IosPalette.blue(context),
+      backgroundColor: IosPalette.secondaryGroupedBackgroundByBrightness(isDark),
+      onRefresh: onRefresh,
+      child: scrollable,
     );
   }
 }
