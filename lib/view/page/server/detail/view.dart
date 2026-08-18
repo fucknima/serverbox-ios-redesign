@@ -332,15 +332,15 @@ ${err.message ?? 'null'}
     return IosNavPage(
       title: si.spi.name,
       actions: [
-        IconButton(
-          icon: const Icon(Icons.share),
+        _IosNavAction(
+          icon: CupertinoIcons.share,
           tooltip: libL10n.share,
-          onPressed: () => _showShareQr(si.spi),
+          onTap: () => _showShareQr(si.spi),
         ),
-        IconButton(
+        _IosNavAction(
+          icon: CupertinoIcons.pencil,
           tooltip: libL10n.edit,
-          icon: const Icon(Icons.edit),
-          onPressed: () async {
+          onTap: () async {
             final delete = await ServerEditPage.route.go(
               context,
               args: SpiRequiredArgs(si.spi),
@@ -1528,6 +1528,36 @@ extension _CardWrapX on Widget {
           borderRadius: BorderRadius.circular(10),
         ),
         child: inner,
+      ),
+    );
+  }
+}
+
+/// A nav-bar action in the Cupertino style: a plain icon with iOS press
+/// feedback, no ripple.
+class _IosNavAction extends StatelessWidget {
+  const _IosNavAction({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: CupertinoButton(
+        padding: const EdgeInsets.all(8),
+        onPressed: onTap,
+        child: Icon(
+          icon,
+          size: 22,
+          color: Theme.of(context).colorScheme.primary,
+        ),
       ),
     );
   }

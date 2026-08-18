@@ -116,7 +116,7 @@ extension _ContainerPageWidgets on _ContainerPageState {
           return const SizedBox.shrink();
         }
         return IconButton(
-          icon: const Icon(Icons.add),
+          icon: const Icon(CupertinoIcons.add),
           tooltip: libL10n.add,
           onPressed: _containerActionsBusy ? null : () => _showAddFAB(),
         );

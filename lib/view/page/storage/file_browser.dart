@@ -929,29 +929,67 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage>
 
   Widget _buildBottom() {
     if (_selecting) return _buildSelectionBar();
-    final children = widget.args.isPickDir
-        ? [
-            IconButton(tooltip: libL10n.ok, 
-              onPressed: () => context.pop(_path.path),
-              icon: const Icon(Icons.done),
-            ),
-          ]
-        : [
-            Btn.icon(text: l10n.back, 
-              onTap: () {
-                if (_path.goBack()) refresh();
-              },
-              icon: const Icon(Icons.arrow_back),
-            ),
-            if (widget.args.homePath case final home?)
-              Btn.icon(text: l10n.homeDir, 
-                onTap: () => goTo(home),
-                icon: const Icon(Icons.home),
-              ),
-            if (!widget.args.isPickFile) _buildAddBtn(),
-            Btn.icon(text: l10n.goto, onTap: _goto, icon: const Icon(Icons.gps_fixed)),
-            ...?widget.args.bottomActions?.call(this),
-          ];
+    // On iOS the toolbar buttons are plain Cupertino icons; everywhere else
+    // the labeled Material buttons.
+    final children = isIOS
+        ? (widget.args.isPickDir
+              ? [
+                  IconButton(
+                    tooltip: libL10n.ok,
+                    onPressed: () => context.pop(_path.path),
+                    icon: const Icon(CupertinoIcons.checkmark),
+                  ),
+                ]
+              : [
+                  IconButton(
+                    tooltip: l10n.back,
+                    onPressed: () {
+                      if (_path.goBack()) refresh();
+                    },
+                    icon: const Icon(CupertinoIcons.back),
+                  ),
+                  if (widget.args.homePath case final home?)
+                    IconButton(
+                      tooltip: l10n.homeDir,
+                      onPressed: () => goTo(home),
+                      icon: const Icon(CupertinoIcons.house_fill),
+                    ),
+                  if (!widget.args.isPickFile) _buildIosAddBtn(),
+                  IconButton(
+                    tooltip: l10n.goto,
+                    onPressed: _goto,
+                    icon: const Icon(CupertinoIcons.arrow_up_right_circle),
+                  ),
+                ])
+        : (widget.args.isPickDir
+              ? [
+                  IconButton(tooltip: libL10n.ok, 
+                    onPressed: () => context.pop(_path.path),
+                    icon: const Icon(Icons.done),
+                  ),
+                ]
+              : [
+                  Btn.icon(text: l10n.back, 
+                    onTap: () {
+                      if (_path.goBack()) refresh();
+                    },
+                    icon: const Icon(Icons.arrow_back),
+                  ),
+                  if (widget.args.homePath case final home?)
+                    Btn.icon(text: l10n.homeDir, 
+                      onTap: () => goTo(home),
+                      icon: const Icon(Icons.home),
+                    ),
+                  if (!widget.args.isPickFile) _buildAddBtn(),
+                  Btn.icon(text: l10n.goto, onTap: _goto, icon: const Icon(Icons.gps_fixed)),
+                ]);
+
+    if (!isIOS) {
+      children.addAll(widget.args.bottomActions?.call(this) ?? const []);
+    } else {
+      final extra = widget.args.bottomActions?.call(this) ?? const <Widget>[];
+      children.insertAll(children.length, extra);
+    }
 
     final content = SafeArea(
       child: Padding(
@@ -1078,6 +1116,15 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage>
       text: libL10n.add,
       icon: const Icon(Icons.add),
       onTap: () => showContextMenu(context, _createActions),
+    );
+  }
+
+  /// The iOS add button in the toolbar.
+  Widget _buildIosAddBtn() {
+    return IconButton(
+      tooltip: libL10n.add,
+      onPressed: () => showContextMenu(context, _createActions),
+      icon: const Icon(CupertinoIcons.add),
     );
   }
 
@@ -1260,8 +1307,12 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage>
             }
             if (items.isEmpty) {
               return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24),
-                child: Center(child: Text(libL10n.empty, style: UIs.textGrey)),
+                padding: const EdgeInsets.symmetric(vertical: 40),
+                child: IosControls.empty(
+                  context,
+                  icon: CupertinoIcons.folder_open,
+                  title: libL10n.empty,
+                ),
               );
             }
             final idx = index - up;

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:choice/choice.dart';
 import 'package:fl_lib/fl_lib.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:icons_plus/icons_plus.dart';
@@ -190,7 +191,7 @@ class _ServerEditPageState extends ConsumerState<ServerEditPage>
       // iOS saves from the bar; the FAB is the non-iOS affordance.
       if (isIOS)
         IconButton(
-          icon: const Icon(Icons.save),
+          icon: const Icon(CupertinoIcons.checkmark),
           tooltip: libL10n.save,
           onPressed: _onSave,
         ),

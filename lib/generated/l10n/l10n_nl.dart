@@ -1450,4 +1450,11 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get dataRecovered =>
       'Some local data could not be read and was reset. Servers and settings may have been lost.';
+
+  @override
+  String get emptyServersTitle => 'No servers';
+
+  @override
+  String get emptyServersTip =>
+      'Add your first server to start monitoring CPU, memory and network.';
 }

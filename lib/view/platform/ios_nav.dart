@@ -87,75 +87,67 @@ class IosNavPage extends StatelessWidget {
   }
 }
 
-/// The standard 44pt iOS nav bar for non-scrollable pages, built on
-/// [CupertinoNavigationBar].
-class IosNavBar extends StatelessWidget implements PreferredSizeWidget {
+/// A page under a standard (non-large) iOS nav bar, for non-scrollable
+/// pages. A [CupertinoPageScaffold] carrying a [CupertinoNavigationBar], so
+/// bar height, safe area and the bottom hairline all come from the Cupertino
+/// system rather than from Material constants.
+class IosNavBar extends StatelessWidget {
   const IosNavBar({
     super.key,
     this.title,
     this.leading,
     this.actions,
-    this.bottom,
+    this.body,
     this.background,
-    this.centerTitle = true,
-    this.titleStyle,
+    this.bottom,
   });
 
   final String? title;
   final Widget? leading;
   final List<Widget>? actions;
-  final PreferredSizeWidget? bottom;
+  final Widget? body;
   final Color? background;
-  final bool centerTitle;
-  final TextStyle? titleStyle;
-
-  @override
-  Size get preferredSize {
-    return Size.fromHeight(kToolbarHeight + (bottom?.preferredSize.height ?? 0));
-  }
+  final Widget? bottom;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = background ?? IosPalette.secondaryGroupedBackgroundByBrightness(isDark);
-    final effectiveLeading =
-        leading ??
-        (ModalRoute.of(context)?.canPop == true
-            ? CupertinoNavigationBarBackButton(
-                onPressed: () => Navigator.maybePop(context),
-              )
-            : const SizedBox.shrink());
 
-    return PreferredSize(
-      preferredSize: preferredSize,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          CupertinoNavigationBar(
-            leading: effectiveLeading,
-            middle: title == null
+    return CupertinoPageScaffold(
+      backgroundColor: bg,
+      navigationBar: CupertinoNavigationBar(
+        leading:
+            leading ??
+            (ModalRoute.of(context)?.canPop == true
+                ? CupertinoNavigationBarBackButton(
+                    onPressed: () => Navigator.maybePop(context),
+                  )
+                : null),
+        middle: title == null
+            ? null
+            : Text(
+                title!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+        trailing:
+            actions == null
                 ? null
-                : Text(
-                    title!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style:
-                        titleStyle ??
-                        TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                  ),
-            trailing:
-                actions == null
-                    ? null
-                    : Row(mainAxisSize: MainAxisSize.min, children: actions!),
-            backgroundColor: bg,
-            border: Border(
-              bottom: BorderSide(color: IosPalette.separatorByBrightness(isDark)),
-            ),
-          ),
+                : Row(mainAxisSize: MainAxisSize.min, children: actions!),
+        backgroundColor: bg,
+        border: Border(
+          bottom: BorderSide(color: IosPalette.separatorByBrightness(isDark)),
+        ),
+      ),
+      child: Column(
+        children: [
+          if (body != null) Expanded(child: body!),
           ?bottom,
         ],
       ),

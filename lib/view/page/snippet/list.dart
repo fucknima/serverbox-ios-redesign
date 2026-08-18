@@ -1,10 +1,12 @@
 import 'package:fl_lib/fl_lib.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:server_box/data/model/server/snippet.dart';
 import 'package:server_box/data/provider/snippet.dart';
 import 'package:server_box/view/page/snippet/edit.dart';
+import 'package:server_box/view/platform/ios_controls.dart';
 import 'package:server_box/view/platform/ios_list.dart';
 import 'package:server_box/view/widget/empty_pane.dart';
 import 'package:server_box/view/widget/pane_settings.dart';
@@ -132,7 +134,18 @@ class _SnippetListPageState extends ConsumerState<SnippetListPage>
   Widget _buildSnippetList(List<Snippet> filtered, bool split) {
     // Asked of what the tag filter left, not of everything: a tag with nothing
     // under it used to draw an empty grid rather than say it was empty.
-    if (filtered.isEmpty) return Center(child: Text(libL10n.empty));
+    if (filtered.isEmpty) {
+      if (isIOS) {
+        return IosControls.empty(
+          context,
+          icon: CupertinoIcons.chevron_left_slash_chevron_right,
+          title: libL10n.empty,
+          actionLabel: libL10n.add,
+          onAction: () => _edit(null, false),
+        );
+      }
+      return Center(child: Text(libL10n.empty));
+    }
 
     // The same rail the server, terminal and file pages put beside their pane,
     // because it is the same job: a narrow index read while your attention is
@@ -276,12 +289,12 @@ final class _SnippetBar extends StatelessWidget implements PreferredSizeWidget {
           ).expanded(),
           Btn.icon(
             text: libL10n.search,
-            icon: const Icon(Icons.search, size: 20),
+            icon: isIOS ? const Icon(CupertinoIcons.search, size: 20) : const Icon(Icons.search, size: 20),
             onTap: onSearch,
           ),
           if (onAdd != null)
             IconButton(
-              icon: const Icon(Icons.add),
+              icon: isIOS ? const Icon(CupertinoIcons.add) : const Icon(Icons.add),
               tooltip: libL10n.add,
               onPressed: onAdd,
             ),

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:fl_lib/fl_lib.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:server_box/core/extension/context/locale.dart';
@@ -9,6 +10,7 @@ import 'package:server_box/data/model/server/private_key_info.dart';
 import 'package:server_box/data/provider/private_key.dart';
 import 'package:server_box/data/res/store.dart';
 import 'package:server_box/view/page/private_key/edit.dart';
+import 'package:server_box/view/platform/ios_controls.dart';
 import 'package:server_box/view/platform/ios_list.dart';
 import 'package:server_box/view/platform/ios_nav.dart';
 import 'package:server_box/view/widget/page_columns.dart';
@@ -33,10 +35,13 @@ class _PrivateKeyListState extends ConsumerState<PrivateKeysListPage>
       return IosNavPage(
         title: l10n.privateKey,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            tooltip: libL10n.add,
-            onPressed: () => PrivateKeyEditPage.route.go(context),
+          Tooltip(
+            message: libL10n.add,
+            child: CupertinoButton(
+              padding: const EdgeInsets.all(8),
+              onPressed: () => PrivateKeyEditPage.route.go(context),
+              child: const Icon(CupertinoIcons.add, size: 22),
+            ),
           ),
         ],
         body: _buildIosBody(),
@@ -55,7 +60,13 @@ class _PrivateKeyListState extends ConsumerState<PrivateKeysListPage>
     final privateKeyState = ref.watch(privateKeyProvider);
     final pkis = privateKeyState.keys;
     if (pkis.isEmpty) {
-      return Center(child: Text(libL10n.empty));
+      return IosControls.empty(
+        context,
+        icon: CupertinoIcons.lock_fill,
+        title: libL10n.empty,
+        actionLabel: libL10n.add,
+        onAction: () => PrivateKeyEditPage.route.go(context),
+      );
     }
     return IosGroupedList(
       children: [

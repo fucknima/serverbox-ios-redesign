@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fl_lib/fl_lib.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -243,7 +245,7 @@ class IosRow extends StatelessWidget {
         child: child,
       );
     }
-    return _IosPressable(
+    return IosPressable(
       onTap: enabled ? onTap : null,
       onLongPress: enabled ? onLongPress : null,
       selected: selected,
@@ -260,8 +262,14 @@ class IosRow extends StatelessWidget {
 }
 
 /// Touch feedback the iOS way: a momentary gray highlight, no ripple.
-class _IosPressable extends StatefulWidget {
-  const _IosPressable({
+///
+/// The highlight waits a beat after the finger lands (UIKit's delay), and a
+/// gesture that turns into a scroll cancels it — so a list the user is
+/// dragging never flashes a row. A long press lights only once it is
+/// recognized as one.
+class IosPressable extends StatefulWidget {
+  const IosPressable({
+    super.key,
     required this.onTap,
     required this.onLongPress,
     required this.child,
@@ -276,15 +284,38 @@ class _IosPressable extends StatefulWidget {
   final Color? selectedColor;
 
   @override
-  State<_IosPressable> createState() => _IosPressableState();
+  State<IosPressable> createState() => _IosPressableState();
 }
 
-class _IosPressableState extends State<_IosPressable> {
-  bool _pressed = false;
+class _IosPressableState extends State<IosPressable> {
+  static const _highlightDelay = Duration(milliseconds: 50);
 
-  void _setPressed(bool value) {
-    if (_pressed == value) return;
-    setState(() => _pressed = value);
+  bool _pressed = false;
+  Timer? _highlightTimer;
+
+  @override
+  void dispose() {
+    _highlightTimer?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleHighlight() {
+    _highlightTimer?.cancel();
+    _highlightTimer = Timer(_highlightDelay, () {
+      if (mounted) setState(() => _pressed = true);
+    });
+  }
+
+  void _cancelHighlight() {
+    _highlightTimer?.cancel();
+    _highlightTimer = null;
+    if (_pressed) setState(() => _pressed = false);
+  }
+
+  void _highlightNow() {
+    _highlightTimer?.cancel();
+    _highlightTimer = null;
+    if (!_pressed) setState(() => _pressed = true);
   }
 
   @override
@@ -297,20 +328,20 @@ class _IosPressableState extends State<_IosPressable> {
         ? (widget.selectedColor ?? Colors.transparent)
         : Colors.transparent;
     final color = _pressed ? Color.alphaBlend(highlight, base) : base;
-    return Listener(
-      onPointerDown: (_) => _setPressed(true),
-      onPointerUp: (_) => _setPressed(false),
-      onPointerCancel: (_) => _setPressed(false),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: widget.onTap,
-        onLongPress: widget.onLongPress,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 100),
-          curve: Curves.easeOut,
-          color: color,
-          child: widget.child,
-        ),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => _scheduleHighlight(),
+      onTapUp: (_) => _cancelHighlight(),
+      onTapCancel: _cancelHighlight,
+      onLongPressStart: (_) => _highlightNow(),
+      onLongPressEnd: (_) => _cancelHighlight(),
+      onTap: widget.onTap,
+      onLongPress: widget.onLongPress,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeOut,
+        color: color,
+        child: widget.child,
       ),
     );
   }

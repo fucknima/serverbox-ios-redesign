@@ -1,3 +1,4 @@
+import 'package:fl_lib/fl_lib.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:server_box/data/model/server/server.dart';
@@ -92,6 +93,102 @@ abstract final class IosControls {
     return SizedBox.square(
       dimension: dimension,
       child: CupertinoActivityIndicator(radius: radius),
+    );
+  }
+
+  /// The unified iOS empty state: icon, title, message, optional action.
+  static Widget empty(
+    BuildContext context, {
+    IconData icon = CupertinoIcons.tray,
+    required String title,
+    String? message,
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final grey = IosPalette.secondaryLabelByBrightness(isDark);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 52, color: IosPalette.grayByBrightness(isDark, level: 3)),
+            const SizedBox(height: 14),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+            ),
+            if (message != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: grey),
+              ),
+            ],
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(height: 18),
+              CupertinoButton.filled(onPressed: onAction, child: Text(actionLabel)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The unified iOS error state: title, explanation, detail, retry.
+  static Widget error(
+    BuildContext context, {
+    required String title,
+    String? explain,
+    String? detail,
+    VoidCallback? onRetry,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final grey = IosPalette.secondaryLabelByBrightness(isDark);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              CupertinoIcons.exclamationmark_triangle,
+              size: 52,
+              color: IosPalette.orange(context),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+            ),
+            if (explain != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                explain,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: grey),
+              ),
+            ],
+            if (detail != null && detail.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              SelectableText(
+                detail,
+                textAlign: TextAlign.center,
+                maxLines: 6,
+                style: TextStyle(fontSize: 11, color: grey),
+              ),
+            ],
+            if (onRetry != null) ...[
+              const SizedBox(height: 18),
+              CupertinoButton.filled(onPressed: onRetry, child: Text(libL10n.retry)),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

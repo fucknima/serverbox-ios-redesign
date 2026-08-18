@@ -21,12 +21,12 @@ extension _IosList on _ServerPageState {
           title: libL10n.server,
           actions: [
             _IosIconBtn(
-              icon: Icons.settings_outlined,
+              icon: CupertinoIcons.gear,
               tooltip: libL10n.setting,
               onTap: () => SettingsPage.route.go(context),
             ),
             _IosIconBtn(
-              icon: Icons.add,
+              icon: CupertinoIcons.add,
               tooltip: libL10n.add,
               onTap: _onTapAddServer,
             ),
@@ -45,8 +45,13 @@ extension _IosList on _ServerPageState {
             if (filtered.isEmpty)
               SliverFillRemaining(
                 hasScrollBody: false,
-                child: Center(
-                  child: Text(libL10n.empty, style: UIs.text13Grey),
+                child: IosControls.empty(
+                  context,
+                  icon: CupertinoIcons.square_stack_3d_up,
+                  title: l10n.emptyServersTitle,
+                  message: l10n.emptyServersTip,
+                  actionLabel: libL10n.add,
+                  onAction: _onTapAddServer,
                 ),
               )
             else
@@ -74,7 +79,7 @@ extension _IosList on _ServerPageState {
       color: cellColor,
       child: Column(
         children: [
-          InkWell(
+          IosPressable(
             onTap: () => _onTapCard(context, srv),
             onLongPress: () => _onLongPressIos(srv),
             child: Padding(
@@ -147,7 +152,9 @@ extension _IosList on _ServerPageState {
         null,
       ),
       ServerConn.failed => (
-        srv.needsInteractiveAuth ? Icons.lock_outline : Icons.refresh,
+        srv.needsInteractiveAuth
+            ? CupertinoIcons.lock_fill
+            : CupertinoIcons.refresh,
         IosPalette.redLight,
         () {
           TryLimiter.reset(srv.spi.id);
@@ -155,12 +162,12 @@ extension _IosList on _ServerPageState {
         },
       ),
       ServerConn.disconnected => (
-        MingCute.link_3_line,
+        CupertinoIcons.link,
         IosPalette.grayLight(2),
         () => ref.read(serversProvider.notifier).refresh(spi: srv.spi),
       ),
       ServerConn.finished => (
-        MingCute.unlink_2_line,
+        CupertinoIcons.xmark_circle,
         IosPalette.grayLight(2),
         () => ref.read(serversProvider.notifier).closeServer(id: srv.spi.id),
       ),
@@ -188,53 +195,81 @@ extension _IosList on _ServerPageState {
     final ss = srv.status;
     final id = srv.spi.id;
     final cardNoti = _getCardNoti(id);
+    // Narrow phones get two rows: CPU/MEM/DSK on the first, the network
+    // reading on its own line where a long speed has room to breathe.
+    final narrow = MediaQuery.sizeOf(context).width < 390;
 
+    final cpu = _buildIosMetric(
+      value: '${(ss.cpu.usedPercent() ?? 0).toStringAsFixed(0)}%',
+      label: 'CPU',
+      percent: (ss.cpu.usedPercent() ?? 0) / 100,
+      color: IosPalette.blue(context),
+    );
+    final mem = _buildIosMetric(
+      value: '${(ss.mem.usedPercent * 100).toStringAsFixed(0)}%',
+      label: 'MEM',
+      percent: ss.mem.usedPercent,
+      color: IosPalette.green(context),
+    );
+    final dsk = _buildIosMetric(
+      value: ss.diskUsage == null
+          ? '--'
+          : '${ss.diskUsage!.usedPercent.toStringAsFixed(0)}%',
+      label: 'DSK',
+      percent: (ss.diskUsage?.usedPercent ?? 0) / 100,
+      color: IosPalette.orange(context),
+    );
+    final net = cardNoti.listenVal((v) {
+      final type = v.net ?? Stores.setting.netViewType.fetch();
+      final device = ref.read(serversProvider).servers[id]?.custom?.netDev;
+      final (a, b) = type.build(ss, dev: device);
+      return _buildIosNetMetric(
+        a,
+        b,
+        onTap: () => cardNoti.value = cardNoti.value.copyWith(net: type.next),
+      );
+    });
+
+    if (!narrow) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+        child: Row(
+          children: [
+            Expanded(child: cpu),
+            const SizedBox(width: 14),
+            Expanded(child: mem),
+            const SizedBox(width: 14),
+            Expanded(flex: 2, child: net),
+            const SizedBox(width: 14),
+            Expanded(child: dsk),
+          ],
+        ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: _buildIosMetric(
-              value: '${(ss.cpu.usedPercent() ?? 0).toStringAsFixed(0)}%',
-              label: 'CPU',
-              percent: (ss.cpu.usedPercent() ?? 0) / 100,
-              color: IosPalette.blue(context),
-            ),
+          Row(
+            children: [
+              Expanded(child: cpu),
+              const SizedBox(width: 14),
+              Expanded(child: mem),
+              const SizedBox(width: 14),
+              Expanded(child: dsk),
+            ],
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: _buildIosMetric(
-              value: '${(ss.mem.usedPercent * 100).toStringAsFixed(0)}%',
-              label: 'MEM',
-              percent: ss.mem.usedPercent,
-              color: IosPalette.green(context),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            flex: 2,
-            child: cardNoti.listenVal((v) {
-              final type = v.net ?? Stores.setting.netViewType.fetch();
-              final device =
-                  ref.read(serversProvider).servers[id]?.custom?.netDev;
-              final (a, b) = type.build(ss, dev: device);
-              return _buildIosNetMetric(
-                a,
-                b,
-                onTap: () => cardNoti.value = cardNoti.value.copyWith(net: type.next),
-              );
-            }),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: _buildIosMetric(
-              value: ss.diskUsage == null
-                  ? '--'
-                  : '${ss.diskUsage!.usedPercent.toStringAsFixed(0)}%',
-              label: 'DSK',
-              percent: (ss.diskUsage?.usedPercent ?? 0) / 100,
-              color: IosPalette.orange(context),
-            ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Text(
+                'NET',
+                style: const TextStyle(fontSize: 10),
+              ),
+              const SizedBox(width: 8),
+              Expanded(child: net),
+            ],
           ),
         ],
       ),
@@ -278,13 +313,19 @@ extension _IosList on _ServerPageState {
   Widget _buildIosNetMetric(String up, String down, {VoidCallback? onTap}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final grey = IosPalette.secondaryLabelByBrightness(isDark);
-    final child = Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        Text(up, style: TextStyle(fontSize: 12, color: grey)),
-        const SizedBox(width: 6),
-        Text(down, style: TextStyle(fontSize: 12, color: grey)),
-      ],
+    // Scale down rather than overflow: an IPv6-length or multi-GB reading
+    // must not push the row past its column.
+    final child = FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerRight,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(up, style: TextStyle(fontSize: 12, color: grey)),
+          const SizedBox(width: 6),
+          Text(down, style: TextStyle(fontSize: 12, color: grey)),
+        ],
+      ),
     );
     if (onTap == null) return child;
     return GestureDetector(
@@ -398,11 +439,17 @@ class _IosIconBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      icon: Icon(icon),
-      tooltip: tooltip,
-      onPressed: onTap,
-      color: Theme.of(context).colorScheme.primary,
+    return Tooltip(
+      message: tooltip,
+      child: CupertinoButton(
+        padding: const EdgeInsets.all(8),
+        onPressed: onTap,
+        child: Icon(
+          icon,
+          size: 22,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+      ),
     );
   }
 }

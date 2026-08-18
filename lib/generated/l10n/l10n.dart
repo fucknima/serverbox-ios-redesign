@@ -2561,6 +2561,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Some local data could not be read and was reset. Servers and settings may have been lost.'**
   String get dataRecovered;
+
+  /// No description provided for @emptyServersTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No servers'**
+  String get emptyServersTitle;
+
+  /// No description provided for @emptyServersTip.
+  ///
+  /// In en, this message translates to:
+  /// **'Add your first server to start monitoring CPU, memory and network.'**
+  String get emptyServersTip;
 }
 
 class _AppLocalizationsDelegate

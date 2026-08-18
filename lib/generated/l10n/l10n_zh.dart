@@ -1332,6 +1332,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get dataRecovered => '部分本地数据无法读取,已重置。服务器和设置可能已丢失。';
+
+  @override
+  String get emptyServersTitle => '暂无服务器';
+
+  @override
+  String get emptyServersTip => '添加你的第一台服务器,开始监控 CPU、内存和网络。';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).

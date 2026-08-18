@@ -29,6 +29,7 @@ import 'package:server_box/view/page/server/detail/view.dart';
 import 'package:server_box/view/page/server/edit/edit.dart';
 import 'package:server_box/view/page/setting/entry.dart';
 import 'package:server_box/view/platform/ios_controls.dart';
+import 'package:server_box/view/platform/ios_list.dart';
 import 'package:server_box/view/platform/ios_nav.dart';
 import 'package:server_box/view/platform/ios_palette.dart';
 import 'package:server_box/view/widget/pane_settings.dart';
