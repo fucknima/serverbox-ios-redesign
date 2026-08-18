@@ -11,6 +11,7 @@ import 'package:server_box/data/res/build_data.dart';
 import 'package:server_box/data/res/store.dart';
 import 'package:server_box/generated/l10n/l10n.dart';
 import 'package:server_box/view/page/home.dart';
+import 'package:server_box/view/platform/ios_theme.dart';
 import 'package:server_box/view/widget/page_columns.dart';
 
 part 'intro.dart';
@@ -129,6 +130,10 @@ class _MyAppState extends State<MyApp> {
       _ => ThemeMode.system,
     };
     final locale = Stores.setting.locale.fetch().toLocale;
+    final isIos = isIOS;
+    final lightTheme = isIos ? light.iosified : light;
+    final darkBase = (tMode < 3 ? dark : dark.toAmoled).fixWindowsFont;
+    final darkTheme = isIos ? darkBase.iosified : darkBase;
 
     return MaterialApp(
       key: ValueKey(locale),
@@ -147,8 +152,8 @@ class _MyAppState extends State<MyApp> {
       navigatorObservers: [AppRouteObserver.instance],
       title: BuildData.name,
       themeMode: themeMode,
-      theme: light.fixWindowsFont,
-      darkTheme: (tMode < 3 ? dark : dark.toAmoled).fixWindowsFont,
+      theme: lightTheme.fixWindowsFont,
+      darkTheme: darkTheme,
       home: FutureBuilder<List<IntroPageBuilder>>(
         future: _introFuture,
         builder: (context, snapshot) {
