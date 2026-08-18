@@ -110,7 +110,7 @@ class _AddPageState extends ConsumerState<_AddPage> {
 
   /// The iPhone picker: one grouped section of rows instead of the card grid.
   Widget _buildIos(ServersState state, List<String> order) {
-    return IosGroupedList(
+    return SafeArea(child: IosGroupedList(
       children: [
         IosSection(
           children: [
@@ -147,7 +147,7 @@ class _AddPageState extends ConsumerState<_AddPage> {
           ],
         ),
       ],
-    );
+    ));
   }
 }
 

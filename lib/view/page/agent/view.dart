@@ -463,24 +463,29 @@ class _AgentConversationViewState extends ConsumerState<AgentConversationView> {
     // true for the iPhone tab as well, so gating on it hid the iOS header.
     if (isIOS) {
       // iPhone tab header: the large title, plain, with the conversation
-      // actions on the right — no icon block.
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                context.l10n.agentTitle,
-                style: const TextStyle(
-                  fontSize: 34,
-                  fontWeight: FontWeight.bold,
-                  height: 1.1,
+      // actions on the right — no icon block. The home page draws no status
+      // bar spacer on iOS, so the header itself has to make room for the
+      // status bar.
+      return SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  context.l10n.agentTitle,
+                  style: const TextStyle(
+                    fontSize: 34,
+                    fontWeight: FontWeight.bold,
+                    height: 1.1,
+                  ),
                 ),
               ),
-            ),
-            AgentHeaderActions(showConversations: true),
-            ?widget.headerTrailing,
-          ],
+              AgentHeaderActions(showConversations: true),
+              ?widget.headerTrailing,
+            ],
+          ),
         ),
       );
     }

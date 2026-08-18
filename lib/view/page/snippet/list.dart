@@ -277,7 +277,7 @@ final class _SnippetBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    final bar = Padding(
       padding: const EdgeInsets.only(left: 10, right: 4),
       child: Row(
         children: [
@@ -301,6 +301,10 @@ final class _SnippetBar extends StatelessWidget implements PreferredSizeWidget {
         ],
       ),
     );
+    // The home page draws no status-bar spacer on iOS; the bar has to make
+    // its own room or it runs under the status bar.
+    if (!isIOS) return bar;
+    return SafeArea(bottom: false, child: bar);
   }
 
   @override

@@ -114,3 +114,10 @@ flutter_native_splash:
     - "ios/Runner/Info-Profile.plist"
     - "ios/Runner/Info-Release.plist"
   android12: true
+
+# path_provider_foundation 2.6.0 switched to the `objective_c` dart:ffi
+# implementation, which crashes with a Foundation assertion
+# (`-[NSMutableDictionary initWithContentsOfFile:]`, SIGABRT) on iOS 27
+# beta. Pin the previous native implementation.
+dependency_overrides:
+  path_provider_foundation: 2.4.1

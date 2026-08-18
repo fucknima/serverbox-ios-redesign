@@ -367,6 +367,14 @@ class _FileTabPageState extends ConsumerState<FileTabPage>
             },
             child: Text(libL10n.add),
           ),
+          CupertinoActionSheetAction(
+            isDestructiveAction: true,
+            onPressed: () {
+              Navigator.pop(context);
+              _close(_sessions.index);
+            },
+            child: Text(libL10n.close),
+          ),
         ],
         cancelButton: CupertinoActionSheetAction(
           onPressed: () => Navigator.pop(context),
@@ -609,7 +617,9 @@ class _PickPage extends ConsumerWidget {
         for (final id in state.serverOrder)
           if (state.servers[id] case final spi? when _canBrowse(ref, spi)) spi,
       ];
-      return IosGroupedList(
+      return SafeArea(
+        bottom: false,
+        child: IosGroupedList(
         children: [
           IosSection(
             header: libL10n.device,
@@ -639,6 +649,7 @@ class _PickPage extends ConsumerWidget {
               ],
             ),
         ],
+        ),
       );
     }
     return MasonryList(

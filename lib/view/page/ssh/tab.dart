@@ -269,6 +269,11 @@ class _SSHTabPageState extends ConsumerState<SSHTabPage>
             : [
                 _snippetBtn,
                 if (current?.data.page.args.spi != null) _agentBtn,
+                _iosIconBtn(
+                  CupertinoIcons.xmark,
+                  '${libL10n.close} ${libL10n.terminal}',
+                  () => _confirmClose(_sessions.index),
+                ),
               ],
       );
     },
