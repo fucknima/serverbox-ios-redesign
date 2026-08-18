@@ -272,6 +272,7 @@ final class _SettingsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (isIOS) return _buildIos(context);
     return ListView(
       key: settingsMenuKey,
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
@@ -284,6 +285,52 @@ final class _SettingsList extends StatelessWidget {
           ),
       ],
     );
+  }
+
+  /// The Apple Settings look: rows in grouped sections with tinted icons.
+  Widget _buildIos(BuildContext context) {
+    const groups = <String, List<String>>{
+      'main': ['app', 'server', 'terminal', 'file'],
+      'data': ['container', 'backup', 'privateKey'],
+      'other': ['about'],
+    };
+    final byId = {for (final node in nodes) node.id: node};
+
+    return IosGroupedList(
+      key: settingsMenuKey,
+      children: [
+        for (final group in groups.values)
+          IosSection(
+            children: [
+              for (final id in group)
+                if (byId[id] != null)
+                  IosRow(
+                    title: byId[id]!.title,
+                    leading: IosSettingsIcon(
+                      byId[id]!.icon,
+                      color: _iosSettingsColor(context, id),
+                    ),
+                    chevron: true,
+                    onTap: () => onTap(byId[id]!),
+                  ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  static Color _iosSettingsColor(BuildContext context, String id) {
+    return switch (id) {
+      'app' => IosPalette.blue(context),
+      'server' => IosPalette.indigo(context),
+      'terminal' => IosPalette.gray(context, level: 3),
+      'file' => IosPalette.teal(context),
+      'container' => IosPalette.purple(context),
+      'backup' => IosPalette.orange(context),
+      'privateKey' => IosPalette.gray(context, level: 1),
+      'about' => IosPalette.gray(context, level: 2),
+      _ => IosPalette.blue(context),
+    };
   }
 }
 

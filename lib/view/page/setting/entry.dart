@@ -35,6 +35,8 @@ import 'package:server_box/view/page/setting/seq/srv_detail_seq.dart';
 import 'package:server_box/view/page/setting/seq/srv_func_seq.dart';
 import 'package:server_box/view/page/setting/seq/srv_seq.dart';
 import 'package:server_box/view/page/setting/seq/virt_key.dart';
+import 'package:server_box/view/platform/ios_list.dart';
+import 'package:server_box/view/platform/ios_palette.dart';
 import 'package:server_box/view/widget/dmg_notice.dart';
 
 part 'about.dart';
@@ -560,9 +562,17 @@ final class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
       SettingsSection.fullScreen => _buildFullScreen(),
     };
 
+    if (!isIOS) {
+      return ListView(
+        padding: MultiList.kOuterPadding,
+        children: [group],
+      );
+    }
+    // iOS: the CardX-wrapped tiles become one grouped section, hairlines
+    // between the rows, on the cell surface.
     return ListView(
-      padding: MultiList.kOuterPadding,
-      children: [group],
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      children: [iosifySection(context, group)],
     );
   }
 
@@ -602,3 +612,37 @@ final class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
   }
 }
 
+
+
+/// Turns a settings section (a [Column] of CardX-wrapped tiles) into an iOS
+/// grouped section: the cards' chrome unwrapped, hairline separators between
+/// the rows, everything on the cell surface.
+Widget iosifySection(BuildContext context, Widget group) {
+  var inner = group;
+  if (inner is CardX) inner = inner.child;
+  final tiles = inner is Column ? inner.children : <Widget>[inner];
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  final cells = <Widget>[];
+  for (var i = 0; i < tiles.length; i++) {
+    var tile = tiles[i];
+    if (tile is CardX) tile = tile.child;
+    cells.add(tile);
+    if (i != tiles.length - 1) {
+      cells.add(
+        Container(
+          height: 0.5,
+          color: IosPalette.separatorByBrightness(isDark),
+          margin: const EdgeInsets.only(left: 16),
+        ),
+      );
+    }
+  }
+  return Container(
+    clipBehavior: Clip.antiAlias,
+    decoration: BoxDecoration(
+      color: IosPalette.secondaryGroupedBackgroundByBrightness(isDark),
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: Column(children: cells),
+  );
+}
