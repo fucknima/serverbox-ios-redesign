@@ -867,6 +867,17 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage>
       Btn.icon(text: libL10n.search, icon: const Icon(Icons.search), onTap: _showSearch),
       if (isDesktop)
         Btn.icon(text: libL10n.refresh, icon: const Icon(Icons.refresh), onTap: refresh),
+      // iPhone: the "..." menu (new folder / file / upload / goto / home)
+      // lives in the bar now that the bottom toolbar is gone.
+      if (isIOS)
+        Tooltip(
+          message: libL10n.more,
+          child: CupertinoButton(
+            padding: const EdgeInsets.all(8),
+            onPressed: _showIosMoreMenu,
+            child: const Icon(CupertinoIcons.ellipsis, size: 21),
+          ),
+        ),
     ];
 
     final body = Column(

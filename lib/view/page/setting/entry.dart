@@ -281,8 +281,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   /// setState-driven page switching.
   Widget _buildIosRoot(List<SettingsNode> nodes) {
     return CupertinoPageScaffold(
+      // Opaque on purpose: a translucent bar lets the list run under it and
+      // the first rows hide behind the bar until scrolled.
       navigationBar: CupertinoNavigationBar(
         middle: Text(libL10n.setting),
+        backgroundColor: IosPalette.groupedBackgroundByBrightness(
+          Theme.of(context).brightness == Brightness.dark,
+        ),
       ),
       child: _SettingsList(
         nodes: nodes,
@@ -309,6 +314,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             navigationBar: CupertinoNavigationBar(
               middle: Text(node.title),
               previousPageTitle: node.isLeaf ? libL10n.setting : null,
+              backgroundColor: IosPalette.groupedBackgroundByBrightness(
+                Theme.of(context).brightness == Brightness.dark,
+              ),
             ),
             child: body,
           );
