@@ -1,4 +1,5 @@
 import 'package:fl_lib/fl_lib.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:server_box/core/extension/context/locale.dart';
@@ -130,9 +131,9 @@ final class _PortForwardPageState extends ConsumerState<PortForwardPage> {
   }
 
   Widget _buildConfigTile(PortForwardConfig config, PortForwardStatus? status) {
-    return _buildConfigTileInner(config, status)
-        .cardx
-        .paddingSymmetric(horizontal: 13, vertical: 4);
+    final tile = _buildConfigTileInner(config, status);
+    if (isIOS) return tile;
+    return tile.cardx.paddingSymmetric(horizontal: 13, vertical: 4);
   }
 
   Widget _buildConfigTileInner(
@@ -143,9 +144,9 @@ final class _PortForwardPageState extends ConsumerState<PortForwardPage> {
     final hasError = status?.error != null;
     final colorScheme = Theme.of(context).colorScheme;
 
-    return ListTile(
+    return CupertinoListTile(
       leading: Icon(
-        isActive ? Icons.link : Icons.link_off,
+        isActive ? CupertinoIcons.link : CupertinoIcons.link_circle,
         color: isActive
             ? colorScheme.primary
             : (hasError ? colorScheme.error : colorScheme.onSurfaceVariant),
@@ -165,7 +166,7 @@ final class _PortForwardPageState extends ConsumerState<PortForwardPage> {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Switch(
+          CupertinoSwitch(
             value: isActive,
             onChanged: (_) => _notifier.toggleForward(config.id),
           ),
@@ -204,8 +205,7 @@ final class _PortForwardPageState extends ConsumerState<PortForwardPage> {
           ),
         ],
       ),
-      isThreeLine: hasError,
-    ).cardx.paddingSymmetric(horizontal: 13, vertical: 4);
+    );
   }
 
   void _onAdd() {

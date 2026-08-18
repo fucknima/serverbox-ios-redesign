@@ -1,13 +1,15 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:server_box/data/res/store.dart';
 
 import 'package:server_box/view/platform/ios_palette.dart';
 
-/// A page under an iOS-style collapsing large title.
+/// A page under an iOS large title that shrinks into the nav bar on scroll.
 ///
-/// The title sits large above the scrollable content and shrinks into the
-/// nav bar as the user scrolls, matching the behavior of
-/// `CupertinoSliverNavigationBar`/`UINavigationBar` large titles.
+/// The real Cupertino stack: [CupertinoPageScaffold] carrying a
+/// [CupertinoSliverNavigationBar] (the UIKit large-title collapse) and a
+/// [CupertinoSliverRefreshControl] for pull-to-refresh. No Material scroll
+/// chrome anywhere.
 class IosNavPage extends StatelessWidget {
   const IosNavPage({
     super.key,
@@ -37,84 +39,56 @@ class IosNavPage extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = background ?? IosPalette.groupedBackgroundByBrightness(isDark);
     final textFactor = Stores.setting.textFactor.fetch();
+    final canPop = ModalRoute.of(context)?.canPop == true;
+
+    final scrollView = CustomScrollView(
+      controller: controller,
+      physics: onRefresh != null
+          ? const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics())
+          : null,
+      slivers: [
+        CupertinoSliverNavigationBar(
+          largeTitle: Text(title),
+          leading:
+              leading ??
+              (canPop
+                  ? CupertinoNavigationBarBackButton(
+                      onPressed: () => Navigator.maybePop(context),
+                    )
+                  : null),
+          trailing:
+              actions == null
+                  ? null
+                  : Row(mainAxisSize: MainAxisSize.min, children: actions!),
+          backgroundColor: bg,
+        ),
+        if (onRefresh != null)
+          CupertinoSliverRefreshControl(onRefresh: onRefresh!),
+        if (body != null)
+          SliverToBoxAdapter(child: body!)
+        else
+          ...?slivers,
+      ],
+    );
 
     return MediaQuery.withClampedTextScaling(
       minScaleFactor: textFactor,
       maxScaleFactor: textFactor,
-      child: Scaffold(
+      child: CupertinoPageScaffold(
         backgroundColor: bg,
-        bottomNavigationBar: bottomBar,
-        body: _wrapRefresh(
-          context,
-          CustomScrollView(
-            controller: controller,
-            physics: onRefresh != null
-                ? const AlwaysScrollableScrollPhysics()
-                : null,
-            slivers: [
-            SliverAppBar.large(
-              pinned: true,
-              leading:
-                  leading ??
-                  (ModalRoute.of(context)?.canPop == true
-                      ? const BackButton()
-                      : null),
-              title: Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 34,
-                  fontWeight: FontWeight.bold,
-                  height: 1.1,
-                ),
-              ),
-              actions: actions,
-              backgroundColor: bg,
-              surfaceTintColor: Colors.transparent,
-              elevation: 0,
-              scrolledUnderElevation: 0,
-              forceMaterialTransparency: true,
-              actionsPadding: const EdgeInsets.only(right: 8),
-              automaticallyImplyLeading: false,
-              flexibleSpace: FlexibleSpaceBar(
-                collapseMode: CollapseMode.parallax,
-                titlePadding: const EdgeInsets.only(left: 16, right: 16, bottom: 14),
-                title: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 34,
-                    fontWeight: FontWeight.bold,
-                    height: 1.1,
-                  ),
-                ),
-              ),
-            ),
-            if (body != null)
-              SliverToBoxAdapter(child: body!)
-            else
-              ...?slivers,
+        child: Column(
+          children: [
+            Expanded(child: scrollView),
+            ?bottomBar,
           ],
-        ),
         ),
       ),
     );
   }
-
-  Widget _wrapRefresh(BuildContext context, Widget scrollable) {
-    final onRefresh = this.onRefresh;
-    if (onRefresh == null) return scrollable;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return RefreshIndicator(
-      color: IosPalette.blue(context),
-      backgroundColor: IosPalette.secondaryGroupedBackgroundByBrightness(isDark),
-      onRefresh: onRefresh,
-      child: scrollable,
-    );
-  }
 }
 
-/// The standard 44pt iOS nav bar for non-scrollable pages.
+/// The standard 44pt iOS nav bar for non-scrollable pages, built on
+/// [CupertinoNavigationBar].
 class IosNavBar extends StatelessWidget implements PreferredSizeWidget {
   const IosNavBar({
     super.key,
@@ -144,73 +118,52 @@ class IosNavBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = background ?? IosPalette.secondaryGroupedBackgroundByBrightness(isDark);
-    final paddingTop = MediaQuery.paddingOf(context).top;
     final effectiveLeading =
         leading ??
         (ModalRoute.of(context)?.canPop == true
-            ? const BackButton()
-            : const SizedBox(width: kToolbarHeight - 16));
+            ? CupertinoNavigationBarBackButton(
+                onPressed: () => Navigator.maybePop(context),
+              )
+            : const SizedBox.shrink());
 
     return PreferredSize(
       preferredSize: preferredSize,
-      child: Material(
-        color: bg,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              height: paddingTop + kToolbarHeight,
-              child: SafeArea(
-                bottom: false,
-                child: Stack(
-                  children: [
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: SizedBox(width: kToolbarHeight, child: effectiveLeading),
-                    ),
-                    if (title != null)
-                      Align(
-                        alignment: centerTitle ? Alignment.center : Alignment.centerLeft,
-                        child: Padding(
-                          padding: EdgeInsets.only(left: centerTitle ? 0 : 60),
-                          child: Text(
-                            title!,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style:
-                                titleStyle ??
-                                TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w600,
-                                  color: Theme.of(context).colorScheme.onSurface,
-                                ),
-                          ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CupertinoNavigationBar(
+            leading: effectiveLeading,
+            middle: title == null
+                ? null
+                : Text(
+                    title!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        titleStyle ??
+                        TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
-                      ),
-                    if (actions != null)
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: actions!,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
+                  ),
+            trailing:
+                actions == null
+                    ? null
+                    : Row(mainAxisSize: MainAxisSize.min, children: actions!),
+            backgroundColor: bg,
+            border: Border(
+              bottom: BorderSide(color: IosPalette.separatorByBrightness(isDark)),
             ),
-            ?bottom,
-          ],
-        ),
+          ),
+          ?bottom,
+        ],
       ),
     );
   }
 }
 
-/// An iOS toolbar: 49pt row on a blurred surface with a hairline top edge.
+/// An iOS toolbar: 49pt row on the cell surface with a hairline top edge.
 class IosToolbar extends StatelessWidget implements PreferredSizeWidget {
   const IosToolbar({super.key, required this.children, this.background});
 
@@ -224,19 +177,16 @@ class IosToolbar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = background ?? IosPalette.secondaryGroupedBackgroundByBrightness(isDark);
-    return Material(
-      color: bg,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: bg,
+        border: Border(
+          top: BorderSide(color: IosPalette.separatorByBrightness(isDark)),
+        ),
+      ),
       child: SafeArea(
         top: false,
-        child: Container(
-          height: 48.5,
-          decoration: BoxDecoration(
-            border: Border(
-              top: BorderSide(color: IosPalette.separatorByBrightness(isDark)),
-            ),
-          ),
-          child: Row(children: children),
-        ),
+        child: SizedBox(height: 48.5, child: Row(children: children)),
       ),
     );
   }

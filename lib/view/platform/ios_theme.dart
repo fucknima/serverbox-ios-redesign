@@ -16,6 +16,13 @@ extension IosThemeX on ThemeData {
     final accent = isDark ? IosPalette.blueDark : IosPalette.blueLight;
 
     return copyWith(
+      // iOS has no ink ripples: touch feedback is a momentary highlight at
+      // most. Killing the splash globally is what makes every Material row,
+      // button and dialog in the tree read as iOS without touching their
+      // call sites.
+      splashFactory: NoSplash.splashFactory,
+      highlightColor: Colors.transparent,
+      hoverColor: Colors.transparent,
       scaffoldBackgroundColor: grouped,
       canvasColor: grouped,
       cardColor: cell,

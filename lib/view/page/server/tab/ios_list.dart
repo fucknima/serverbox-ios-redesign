@@ -169,13 +169,13 @@ extension _IosList on _ServerPageState {
     if (srv.conn == ServerConn.connecting ||
         srv.conn == ServerConn.loading ||
         srv.conn == ServerConn.connected) {
-      return const Padding(
-        padding: EdgeInsets.all(6),
-        child: SizedLoading(24, padding: 2),
+      return Padding(
+        padding: const EdgeInsets.all(6),
+        child: IosControls.loadingBox(dimension: 24),
       );
     }
-    return InkWell(
-      borderRadius: BorderRadius.circular(6),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.all(6),
@@ -287,8 +287,8 @@ extension _IosList on _ServerPageState {
       ],
     );
     if (onTap == null) return child;
-    return InkWell(
-      borderRadius: BorderRadius.circular(6),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -301,38 +301,33 @@ extension _IosList on _ServerPageState {
     final powerFuncs = srv.conn == ServerConn.finished
         ? ServerPower.funcs
         : const <ShellFunc>[];
-    final action = await showModalBottomSheet<Object>(
+    // iOS action sheet: destructive shutdown last among the actions, cancel
+    // below, presented with the Cupertino pop transition.
+    final action = await showCupertinoModalPopup<Object>(
       context: context,
       builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 8),
-              Text(
-                srv.spi.name,
-                style: UIs.text13Grey,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+        return CupertinoActionSheet(
+          title: Text(
+            srv.spi.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          actions: [
+            for (final func in powerFuncs)
+              CupertinoActionSheetAction(
+                isDefaultAction: func == ShellFunc.suspend,
+                isDestructiveAction: func == ShellFunc.shutdown,
+                onPressed: () => Navigator.pop(context, func),
+                child: Text(ServerPower.label(func)),
               ),
-              const SizedBox(height: 8),
-              for (final func in powerFuncs)
-                ListTile(
-                  leading: Icon(ServerPower.icon(func)),
-                  title: Text(ServerPower.label(func)),
-                  onTap: () {
-                    Navigator.pop(context, func);
-                  },
-                ),
-              ListTile(
-                leading: const Icon(Icons.edit_outlined),
-                title: Text(libL10n.edit),
-                onTap: () {
-                  Navigator.pop(context, ServerEditPage.route);
-                },
-              ),
-              const SizedBox(height: 8),
-            ],
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.pop(context, ServerEditPage.route),
+              child: Text(libL10n.edit),
+            ),
+          ],
+          cancelButton: CupertinoActionSheetAction(
+            onPressed: () => Navigator.pop(context),
+            child: Text(libL10n.cancel),
           ),
         );
       },

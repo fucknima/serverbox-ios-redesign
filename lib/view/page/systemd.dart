@@ -1,4 +1,5 @@
 import 'package:fl_lib/fl_lib.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:server_box/core/extension/context/locale.dart';
@@ -51,10 +52,9 @@ final class _SystemdPageState extends ConsumerState<SystemdPage> {
               ]
             : null,
       ),
-      body: RefreshIndicator(
-        onRefresh: _refresh,
-        child: _buildBody(),
-      ),
+      // iOS pulls with the Cupertino refresh control inside the scroll view;
+      // everywhere else the Material one wraps it.
+      body: isIOS ? _buildBody() : RefreshIndicator(onRefresh: _refresh, child: _buildBody()),
     );
   }
 
@@ -77,7 +77,10 @@ final class _SystemdPageState extends ConsumerState<SystemdPage> {
     }
 
     return CustomScrollView(
+      physics: isIOS ? const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()) : null,
       slivers: <Widget>[
+        if (isIOS)
+          CupertinoSliverRefreshControl(onRefresh: _refresh),
         SliverToBoxAdapter(
           child: Column(
             children: [
@@ -166,31 +169,48 @@ final class _SystemdPageState extends ConsumerState<SystemdPage> {
         child: CenterGreyTitle(libL10n.empty).paddingSymmetric(horizontal: 13),
       );
     }
-    final rows = [
-      for (final unit in filteredUnits)
-        ListTile(
-          leading: _buildScopeTag(unit.scope),
-          title: unit.description != null
-              ? TipText(unit.name, unit.description!)
-              : Text(unit.name),
-          subtitle: Wrap(
-            children: [_buildStateTag(unit.state), _buildTypeTag(unit.type)],
-          ).paddingOnly(top: 7),
-          trailing: _buildUnitFuncs(unit),
+    if (isIOS) {
+      return SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+          child: IosSection(
+            children: [
+              for (final unit in filteredUnits)
+                CupertinoListTile(
+                  leading: _buildScopeTag(unit.scope),
+                  title: unit.description != null
+                      ? TipText(unit.name, unit.description!)
+                      : Text(unit.name),
+                  subtitle: Wrap(
+                    children: [
+                      _buildStateTag(unit.state),
+                      _buildTypeTag(unit.type),
+                    ],
+                  ).paddingOnly(top: 7),
+                  trailing: _buildUnitFuncs(unit),
+                ),
+            ],
+          ),
         ),
-    ];
-    if (!isIOS) {
-      return SliverList(
-        delegate: SliverChildListDelegate([
-          for (final row in rows) row.cardx.paddingSymmetric(horizontal: 13),
-        ]),
       );
     }
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-        child: IosSection(children: rows),
-      ),
+    return SliverList(
+      delegate: SliverChildListDelegate([
+        for (final unit in filteredUnits)
+          ListTile(
+            leading: _buildScopeTag(unit.scope),
+            title: unit.description != null
+                ? TipText(unit.name, unit.description!)
+                : Text(unit.name),
+            subtitle: Wrap(
+              children: [
+                _buildStateTag(unit.state),
+                _buildTypeTag(unit.type),
+              ],
+            ).paddingOnly(top: 7),
+            trailing: _buildUnitFuncs(unit),
+          ).cardx.paddingSymmetric(horizontal: 13),
+      ]),
     );
   }
 

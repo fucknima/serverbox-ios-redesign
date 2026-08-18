@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:extended_image/extended_image.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:fl_lib/fl_lib.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -31,6 +32,7 @@ import 'package:server_box/data/provider/server/single.dart';
 import 'package:server_box/data/res/store.dart';
 import 'package:server_box/view/page/pve.dart';
 import 'package:server_box/view/page/server/edit/edit.dart';
+import 'package:server_box/view/platform/ios_controls.dart';
 import 'package:server_box/view/platform/ios_nav.dart';
 import 'package:server_box/view/platform/ios_palette.dart';
 import 'package:server_box/view/widget/page_columns.dart';
@@ -197,17 +199,24 @@ class _ServerDetailPageState extends ConsumerState<ServerDetailPage>
           // a list row rather than a button.
           Center(
             child: busy
-                ? SizedLoading.medium
-                : Btn.elevated(
-                    text: libL10n.retry,
-                    icon: const Icon(Icons.refresh, size: 18),
-                    // The icon variant lays its row out at max size, so
-                    // without this the button fills whatever it is given and
-                    // reads as a list row.
-                    mainAxisSize: MainAxisSize.min,
-                    gap: 8,
-                    onTap: () => _reconnect(si),
-                  ),
+                ? (isIOS
+                      ? IosControls.loading(radius: 14)
+                      : SizedLoading.medium)
+                : (isIOS
+                      ? CupertinoButton.filled(
+                          onPressed: () => _reconnect(si),
+                          child: Text(libL10n.retry),
+                        )
+                      : Btn.elevated(
+                          text: libL10n.retry,
+                          icon: const Icon(Icons.refresh, size: 18),
+                          // The icon variant lays its row out at max size, so
+                          // without this the button fills whatever it is given
+                          // and reads as a list row.
+                          mainAxisSize: MainAxisSize.min,
+                          gap: 8,
+                          onTap: () => _reconnect(si),
+                        )),
           ),
         ],
       ),

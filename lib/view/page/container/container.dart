@@ -82,7 +82,7 @@ extension _ContainerPageWidgets on _ContainerPageState {
     return Scaffold(
       appBar: _buildAppBar(),
       body: SafeArea(child: _buildMain()),
-      floatingActionButton: hasItems ? _buildFAB() : null,
+      floatingActionButton: hasItems && !isIOS ? _buildFAB() : null,
     );
   }
 
@@ -90,6 +90,8 @@ extension _ContainerPageWidgets on _ContainerPageState {
     return CustomAppBar(
       centerTitle: true,
       title: TwoLineText(up: libL10n.container, down: widget.args.spi.name),
+      // iOS adds containers from the bar; the FAB is the non-iOS affordance.
+      actions: isIOS ? [_buildIosAddAction()] : null,
       bottom: isIOS
           ? _buildIosSegmented()
           : TabBar(
@@ -101,6 +103,24 @@ extension _ContainerPageWidgets on _ContainerPageState {
                   .map((e) => Tab(text: e.i18n))
                   .toList(growable: false),
             ),
+    );
+  }
+
+  /// The iOS add button: only the ps tab can create, and only when the
+  /// current action is not busy.
+  Widget _buildIosAddAction() {
+    return ListenableBuilder(
+      listenable: _tabCtrl,
+      builder: (_, _) {
+        if (_tabCtrl.index != _ContainerTabs.ps.index) {
+          return const SizedBox.shrink();
+        }
+        return IconButton(
+          icon: const Icon(Icons.add),
+          tooltip: libL10n.add,
+          onPressed: _containerActionsBusy ? null : () => _showAddFAB(),
+        );
+      },
     );
   }
 

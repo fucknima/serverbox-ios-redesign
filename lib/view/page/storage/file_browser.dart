@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:cross_file/cross_file.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:fl_lib/fl_lib.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,6 +19,8 @@ import 'package:server_box/data/res/store.dart';
 import 'package:server_box/view/page/storage/file_pane.dart';
 import 'package:server_box/view/page/storage/send_to.dart';
 import 'package:server_box/view/page/storage/transfer_announce.dart';
+import 'package:server_box/view/platform/ios_controls.dart';
+import 'package:server_box/view/platform/ios_list.dart';
 import 'package:server_box/view/platform/ios_palette.dart';
 import 'package:server_box/view/widget/omit_start_text.dart';
 import 'package:server_box/view/widget/page_issue.dart';
@@ -1377,6 +1380,31 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage>
       ],
     ];
 
+    if (isIOS) {
+      // Files.app row: full-width, no ripple, Cupertino glyphs, selection as
+      // a tinted background. The keyboard-cursor outline stays on desktops,
+      // where the keyboard is used.
+      return IosRow(
+        title: label ?? entry.name,
+        titleMaxLines: 2,
+        subtitle: details.isEmpty ? null : details.join('\n'),
+        subtitleMaxLines: 3,
+        leading: Icon(
+          switch (entry.kind) {
+            FileKind.dir => CupertinoIcons.folder_fill,
+            FileKind.link => CupertinoIcons.link,
+            _ => CupertinoIcons.doc_fill,
+          },
+          size: 22,
+          color: IosPalette.blue(context),
+        ),
+        trailing: isNarrow ? null : _buildEntryTrailing(entry),
+        onTap: onTap,
+        onLongPress: onLongPress,
+        selected: _selected.contains(entry.name),
+      );
+    }
+
     final tile = ListTile(
       leading: icon,
       title: Text(label ?? entry.name),
@@ -1398,8 +1426,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage>
             )
           : null,
     ).onSecondary(onSecondaryTap);
-    if (!isIOS) return CardX(child: tile);
-    return tile;
+    return CardX(child: tile);
   }
 
   Widget? _buildEntryTrailing(FileEntry entry) {
@@ -1636,27 +1663,37 @@ class _InlineSearchState extends State<_InlineSearch> {
           padding: const EdgeInsets.only(left: 3, right: 11, top: 3, bottom: 3),
           child: Row(
             children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back),
-                tooltip: libL10n.close,
-                onPressed: widget.onClose,
-              ),
+              if (isIOS)
+                CupertinoNavigationBarBackButton(onPressed: widget.onClose)
+              else
+                IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  tooltip: libL10n.close,
+                  onPressed: widget.onClose,
+                ),
               Expanded(
                 // `noWrap`, wrapped here: `Input`'s own card adds vertical
                 // padding on top of the field's own, which is most of a row
-                // again in something that is only ever one line.
-                child: CardX(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 11),
-                    child: Input(
-                      noWrap: true,
-                      controller: _query,
-                      autoFocus: true,
-                      suggestion: false,
-                      onChanged: (_) => setState(() {}),
-                    ),
-                  ),
-                ),
+                // again in something that is only ever one line. On iOS the
+                // search field is the platform one.
+                child: isIOS
+                    ? CupertinoSearchTextField(
+                        controller: _query,
+                        autofocus: true,
+                        onChanged: (_) => setState(() {}),
+                      )
+                    : CardX(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 11),
+                          child: Input(
+                            noWrap: true,
+                            controller: _query,
+                            autoFocus: true,
+                            suggestion: false,
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ),
+                      ),
               ),
             ],
           ),
@@ -1666,7 +1703,9 @@ class _InlineSearchState extends State<_InlineSearch> {
             // Rebuilt per query, which is what re-reads the listing: the
             // directory can change under a search that is left open.
             future: widget.search(_query.text),
-            loading: UIs.centerLoading,
+            loading: isIOS
+                ? Center(child: IosControls.loading())
+                : UIs.centerLoading,
             error: (e, _) => Center(child: Text('$e', style: UIs.textGrey)),
             success: (entries) {
               final found = entries ?? const <FileEntry>[];

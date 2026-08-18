@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:server_box/data/model/server/server.dart';
 
@@ -78,6 +79,19 @@ abstract final class IosControls {
       Icons.chevron_right,
       size: 20,
       color: color ?? IosPalette.grayByBrightness(isDark, level: 2),
+    );
+  }
+
+  /// The iOS spinner, sized like the Material one it replaces.
+  static Widget loading({double radius = 12}) {
+    return CupertinoActivityIndicator(radius: radius);
+  }
+
+  /// The iOS spinner with a square layout box for fixed-size slots.
+  static Widget loadingBox({double dimension = 24, double radius = 12}) {
+    return SizedBox.square(
+      dimension: dimension,
+      child: CupertinoActivityIndicator(radius: radius),
     );
   }
 }

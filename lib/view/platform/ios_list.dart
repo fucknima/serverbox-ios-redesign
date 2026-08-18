@@ -118,7 +118,8 @@ class IosSection extends StatelessWidget {
 /// The iOS row in a grouped table.
 ///
 /// 44pt high, 16pt inset, hairline-free (sections draw separators), with the
-/// optional disclosure chevron iOS uses for navigation rows.
+/// optional disclosure chevron iOS uses for navigation rows. Touch feedback
+/// is the iOS momentary highlight — there is no ink ripple.
 class IosRow extends StatelessWidget {
   const IosRow({
     super.key,
@@ -134,6 +135,10 @@ class IosRow extends StatelessWidget {
     this.titleStyle,
     this.titleColor,
     this.subtitleStyle,
+    this.titleMaxLines = 1,
+    this.subtitleMaxLines = 1,
+    this.selected = false,
+    this.selectedColor,
   });
 
   final String? title;
@@ -148,6 +153,10 @@ class IosRow extends StatelessWidget {
   final TextStyle? titleStyle;
   final Color? titleColor;
   final TextStyle? subtitleStyle;
+  final int titleMaxLines;
+  final int subtitleMaxLines;
+  final bool selected;
+  final Color? selectedColor;
 
   @override
   Widget build(BuildContext context) {
@@ -176,6 +185,7 @@ class IosRow extends StatelessWidget {
             : null);
 
     final content = Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         if (leading != null) ...[
           leading!,
@@ -189,7 +199,7 @@ class IosRow extends StatelessWidget {
               if (title != null)
                 Text(
                   title!,
-                  maxLines: 1,
+                  maxLines: titleMaxLines,
                   overflow: TextOverflow.ellipsis,
                   style: titleStyle_,
                 ),
@@ -197,7 +207,7 @@ class IosRow extends StatelessWidget {
                 if (title != null) const SizedBox(height: 1),
                 Text(
                   subtitle!,
-                  maxLines: 1,
+                  maxLines: subtitleMaxLines,
                   overflow: TextOverflow.ellipsis,
                   style: subtitleStyle_,
                 ),
@@ -212,21 +222,96 @@ class IosRow extends StatelessWidget {
       ],
     );
 
+    // Multi-line rows size to their content; single-line rows keep the
+    // standard heights.
+    final effectiveHeight = height ??
+        (subtitleMaxLines > 1
+            ? null
+            : (subtitle != null ? 44.0 : 33.0));
+
     final child = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: SizedBox(
-        height: height ?? (subtitle != null ? 44 : 33),
+        height: effectiveHeight,
         child: content,
       ),
     );
 
     if (onTap == null && onLongPress == null) {
-      return ColoredBox(color: Colors.transparent, child: child);
+      return ColoredBox(
+        color: selected ? (selectedColor ?? _selectionColor(context)) : Colors.transparent,
+        child: child,
+      );
     }
-    return InkWell(
+    return _IosPressable(
       onTap: enabled ? onTap : null,
       onLongPress: enabled ? onLongPress : null,
+      selected: selected,
+      selectedColor: selectedColor ?? _selectionColor(context),
       child: child,
+    );
+  }
+
+  static Color _selectionColor(BuildContext context) {
+    return Theme.of(
+      context,
+    ).colorScheme.secondaryContainer.withValues(alpha: 0.55);
+  }
+}
+
+/// Touch feedback the iOS way: a momentary gray highlight, no ripple.
+class _IosPressable extends StatefulWidget {
+  const _IosPressable({
+    required this.onTap,
+    required this.onLongPress,
+    required this.child,
+    this.selected = false,
+    this.selectedColor,
+  });
+
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final Widget child;
+  final bool selected;
+  final Color? selectedColor;
+
+  @override
+  State<_IosPressable> createState() => _IosPressableState();
+}
+
+class _IosPressableState extends State<_IosPressable> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (_pressed == value) return;
+    setState(() => _pressed = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final highlight = isDark
+        ? const Color(0x14FFFFFF)
+        : const Color(0x0F000000);
+    final base = widget.selected
+        ? (widget.selectedColor ?? Colors.transparent)
+        : Colors.transparent;
+    final color = _pressed ? Color.alphaBlend(highlight, base) : base;
+    return Listener(
+      onPointerDown: (_) => _setPressed(true),
+      onPointerUp: (_) => _setPressed(false),
+      onPointerCancel: (_) => _setPressed(false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onTap,
+        onLongPress: widget.onLongPress,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 100),
+          curve: Curves.easeOut,
+          color: color,
+          child: widget.child,
+        ),
+      ),
     );
   }
 }
