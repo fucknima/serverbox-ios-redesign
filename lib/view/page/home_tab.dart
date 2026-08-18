@@ -20,6 +20,34 @@ extension AppTabViewX on AppTab {
     };
   }
 
+  /// The iOS tab-bar item: the outlined glyph, colored by the bar.
+  BottomNavigationBarItem get tabBarItem {
+    return BottomNavigationBarItem(
+      icon: Icon(_iconData),
+      label: _label,
+    );
+  }
+
+  IconData get _iconData {
+    return switch (this) {
+      AppTab.server => BoxIcons.bx_server,
+      AppTab.ssh => Icons.terminal_outlined,
+      AppTab.snippet => Icons.code_outlined,
+      AppTab.file => Icons.folder_outlined,
+      AppTab.agent => Icons.auto_awesome_outlined,
+    };
+  }
+
+  String get _label {
+    return switch (this) {
+      AppTab.server => libL10n.server,
+      AppTab.ssh => libL10n.terminal,
+      AppTab.snippet => libL10n.snippet,
+      AppTab.file => libL10n.file,
+      AppTab.agent => l10n.agentTitle,
+    };
+  }
+
   NavigationDestination get navDestination {
     return switch (this) {
       AppTab.server => NavigationDestination(

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:fl_lib/fl_lib.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -276,6 +277,16 @@ class _HomePageState extends ConsumerState<HomePage>
       listenable: _selectIndex,
       builder: (context, child) {
         if (_isServerFullscreenMode) return UIs.placeholder;
+        if (isIOS) {
+          return CupertinoTabBar(
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            activeColor: Theme.of(context).colorScheme.primary,
+            inactiveColor: Theme.of(context).colorScheme.onSurfaceVariant,
+            currentIndex: _selectIndex.value,
+            onTap: _onDestinationSelected,
+            items: _tabs.map((tab) => tab.tabBarItem).toList(),
+          );
+        }
         return NavigationBar(
           selectedIndex: _selectIndex.value,
           height: kBottomNavigationBarHeight * 1.1,
