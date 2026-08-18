@@ -97,7 +97,16 @@ import ActivityKit
         if #available(iOS 16.2, *) {
             Task { await LiveActivityManager.stop() }
         }
-        super.application(application, didDiscardSceneSessions: sceneSessions)
+        // The system calls this at the *next* launch when scene sessions were
+        // discarded while the app was not running. FlutterAppDelegate does not
+        // implement this optional UIApplicationDelegate method, so an
+        // unconditional `super` forward throws "unrecognized selector" and the
+        // app aborts right at launch — the "crash on second open after being
+        // killed from the app switcher" report. Forward only when the
+        // superclass actually has something to run.
+        if FlutterAppDelegate.instancesRespond(to: #selector(UIApplicationDelegate.application(_:didDiscardSceneSessions:))) {
+            super.application(application, didDiscardSceneSessions: sceneSessions)
+        }
     }
     
     override func applicationWillTerminate(_ application: UIApplication) {
