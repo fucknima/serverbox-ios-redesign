@@ -31,6 +31,8 @@ import 'package:server_box/data/provider/server/single.dart';
 import 'package:server_box/data/res/store.dart';
 import 'package:server_box/view/page/pve.dart';
 import 'package:server_box/view/page/server/edit/edit.dart';
+import 'package:server_box/view/platform/ios_nav.dart';
+import 'package:server_box/view/platform/ios_palette.dart';
 import 'package:server_box/view/widget/page_columns.dart';
 import 'package:server_box/view/widget/server_func_btns.dart';
 
@@ -260,6 +262,9 @@ ${err.message ?? 'null'}
     // `terminal` rather than `shell`: an agent's passwordless PTY earns the
     // row too, and `btns` decides what belongs in it
     final buildFuncs = si.capabilities.terminal;
+    if (isIOS && MediaQuery.sizeOf(context).width < 600) {
+      return _buildIosMainPage(si, buildFuncs);
+    }
     final logo = _buildLogo(si);
     final children = <Widget>[?logo, ?_buildErrCard(si)];
     for (final card in _cardsOrder) {
@@ -296,6 +301,69 @@ ${err.message ?? 'null'}
           ],
         ),
       ),
+    );
+  }
+
+  /// The iPhone layout: the same cards, as iOS grouped sections under a
+  /// large title, with the func bar floating over the bottom.
+  Widget _buildIosMainPage(ServerState si, bool buildFuncs) {
+    final logo = _buildLogo(si);
+    final children = <Widget>[
+      ?logo,
+      ?_buildErrCard(si),
+    ];
+    for (final card in _cardsOrder) {
+      final child = _cardBuildMap[ServerDetailCards.fromName(card)]
+          ?.call(si);
+      if (child != null) {
+        children.add(child);
+      }
+    }
+
+    return IosNavPage(
+      title: si.spi.name,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.share),
+          tooltip: libL10n.share,
+          onPressed: () => _showShareQr(si.spi),
+        ),
+        IconButton(
+          tooltip: libL10n.edit,
+          icon: const Icon(Icons.edit),
+          onPressed: () async {
+            final delete = await ServerEditPage.route.go(
+              context,
+              args: SpiRequiredArgs(si.spi),
+            );
+            if (delete == true && mounted) {
+              context.pop();
+            }
+          },
+        ),
+      ],
+      controller: _scrollCtrl,
+      bottomBar: buildFuncs
+          ? HideOnScroll(
+              controller: _scrollCtrl,
+              child: _buildFuncBar(si),
+            )
+          : null,
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            4,
+            16,
+            buildFuncs ? _kFuncBarInset + 8 : 16,
+          ),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate(
+              children.map((e) => e._wrapCard(context)).toList(),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -507,7 +575,7 @@ ${err.message ?? 'null'}
             ),
           )
           .toList(),
-    ).cardx;
+    )._wrapCard(context);
   }
 
   /// CPU: the live figure, its breakdown, the per-core bars, its own trend,
@@ -559,7 +627,7 @@ ${err.message ?? 'null'}
       initiallyExpanded: _getInitExpand(1),
       trailing: Row(mainAxisSize: MainAxisSize.min, children: details),
       children: children,
-    ).cardx;
+    )._wrapCard(context);
   }
 
   /// RAM, laid out to mirror the CPU card so the two read as one scale.
@@ -597,7 +665,7 @@ ${err.message ?? 'null'}
         ],
       ),
       children: [?_buildMemChart(si)],
-    ).cardx;
+    )._wrapCard(context);
   }
 
   Widget _buildCpuModelItem(MapEntry<String, int> e) {
@@ -749,7 +817,7 @@ ${err.message ?? 'null'}
           _buildProgress(used),
         ],
       ),
-    ).cardx;
+    )._wrapCard(context);
   }
 
   Widget? _buildGpuView(ServerState si) {
@@ -776,7 +844,7 @@ ${err.message ?? 'null'}
       leading: const Icon(Icons.memory, size: 17),
       initiallyExpanded: _getInitExpand(children.length, 3),
       children: children,
-    ).cardx;
+    )._wrapCard(context);
   }
 
   Widget _buildNvidiaGpuItem(NvidiaSmiItem item) {
@@ -901,7 +969,7 @@ ${err.message ?? 'null'}
       leading: Icon(ServerDetailCards.disk.icon, size: 17),
       initiallyExpanded: _getInitExpand(1),
       children: children,
-    ).cardx;
+    )._wrapCard(context);
   }
 
   Widget _buildDiskItemWithHierarchy(
@@ -1184,7 +1252,7 @@ ${err.message ?? 'null'}
       childrenPadding: EdgeInsets.zero,
       initiallyExpanded: _getInitExpand(1),
       children: children,
-    ).cardx;
+    )._wrapCard(context);
   }
 
   Widget _buildNetSpeedItem(NetSpeed ns, String device) {
@@ -1431,6 +1499,27 @@ ${err.message ?? 'null'}
       child: Text(key: key, text, style: style, textScaler: _textFactor),
       transitionBuilder: (child, animation) =>
           FadeTransition(opacity: animation, child: child),
+    );
+  }
+}
+
+/// The card chrome: a Material card everywhere else, an iOS grouped section
+/// on iPhone. The content builders are shared.
+extension _CardWrapX on Widget {
+  Widget _wrapCard(BuildContext context) {
+    if (!isIOS) return cardx;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final inner = this is CardX ? (this as CardX).child : this;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: IosPalette.secondaryGroupedBackgroundByBrightness(isDark),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: inner,
+      ),
     );
   }
 }

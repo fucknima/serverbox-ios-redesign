@@ -19,6 +19,7 @@ class IosNavPage extends StatelessWidget {
     this.bottomBar,
     this.background,
     this.onRefresh,
+    this.controller,
   });
 
   final String title;
@@ -29,6 +30,7 @@ class IosNavPage extends StatelessWidget {
   final Widget? bottomBar;
   final Color? background;
   final Future<void> Function()? onRefresh;
+  final ScrollController? controller;
 
   @override
   Widget build(BuildContext context) {
@@ -45,13 +47,18 @@ class IosNavPage extends StatelessWidget {
         body: _wrapRefresh(
           context,
           CustomScrollView(
+            controller: controller,
             physics: onRefresh != null
                 ? const AlwaysScrollableScrollPhysics()
                 : null,
             slivers: [
             SliverAppBar.large(
               pinned: true,
-              leading: leading,
+              leading:
+                  leading ??
+                  (ModalRoute.of(context)?.canPop == true
+                      ? const BackButton()
+                      : null),
               title: Text(
                 title,
                 style: const TextStyle(
