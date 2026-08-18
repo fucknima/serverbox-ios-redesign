@@ -1,0 +1,78 @@
+name: Build iOS
+
+# Builds the iOS app on GitHub's macOS runners, since a local Linux box
+# cannot run Xcode. Produces an unsigned .ipa (needs re-signing before
+# install) and uploads it as a build artifact.
+#
+# Runs on push to main and on demand via "Run workflow".
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+env:
+  APP_NAME: ServerBox
+  FLUTTER_VERSION: "3.47.0"
+
+jobs:
+  buildIOS:
+    name: Build iOS (unsigned ipa)
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+
+      # The app links sbm_ffi (flutter_rust_bridge) via cargokit during the
+      # Xcode build; the iOS rust targets are not installed with the default
+      # toolchain.
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,x86_64-apple-ios
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Resolve build number
+        shell: bash
+        run: |
+          set -euo pipefail
+          build="$(sed -n -E 's/.*static const int build = ([0-9]+);/\1/p' lib/data/res/build_data.dart | head -n 1)"
+          if [[ -z "$build" ]]; then
+            echo "BuildData.build not found in lib/data/res/build_data.dart"
+            exit 1
+          fi
+          echo "BUILD_NUMBER=$build" >> "$GITHUB_ENV"
+
+      - name: Build (unsigned)
+        shell: bash
+        run: |
+          flutter build ios --release --no-codesign \
+            --build-number="${BUILD_NUMBER}" \
+            --build-name="1.0.${BUILD_NUMBER}"
+
+      - name: Package ipa
+        shell: bash
+        run: APP_ASSET_NAME="${APP_NAME}" scripts/release/package-unsigned-ipa.sh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-ios
+          path: build/artifacts/*.ipa
+          if-no-files-found: error
+          retention-days: 14
