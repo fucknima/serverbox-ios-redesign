@@ -10,8 +10,10 @@ import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:logging/logging.dart';
 import 'package:server_box/app.dart';
 import 'package:server_box/core/chan.dart';
+import 'package:server_box/core/extension/context/locale.dart';
 import 'package:server_box/core/service/watch_sync.dart';
 import 'package:server_box/core/sync.dart';
+import 'package:server_box/core/utils/data_recovery.dart';
 import 'package:server_box/core/utils/rootfs.dart';
 import 'package:server_box/core/utils/sandbox_import.dart';
 import 'package:server_box/data/model/app/menu/server_func.dart';
@@ -32,6 +34,16 @@ Future<void> main() async {
     await _initApp();
     runApp(ProviderScope(child: const MyApp()));
     _greetDev();
+    _notifyDataRecovery();
+  });
+}
+
+/// The user lost local data to a box that would not open; say so after the
+/// first frame, when the toast host and the locale are both up.
+void _notifyDataRecovery() {
+  if (!DataRecovery.recovered) return;
+  Future.delayed(const Duration(seconds: 2), () {
+    Toast.warn(l10n.dataRecovered);
   });
 }
 
@@ -109,7 +121,11 @@ Future<void> _initApp() async {
   await _doPlatformRelated();
 
   // Initialize platform session notifications and Live Activities.
-  await TermSessionManager.init();
+  try {
+    await TermSessionManager.init();
+  } catch (e, s) {
+    Loggers.app.warning('TermSessionManager.init', e, s);
+  }
 }
 
 Future<void> _initData() async {
@@ -148,20 +164,20 @@ Future<void> _initData() async {
   try {
     await Stores.init();
   } catch (e, s) {
-    if (imported != SandboxImportResult.imported) rethrow;
-
-    // The copied data does not open. It was only ever a copy, so drop it and
+    // A box that cannot be opened — a file cut off by a kill, or an
+    // encryption key the keychain no longer holds — must not take the whole
+    // app down at launch. [Stores.init] already quarantines and retries the
+    // store that threw; this is the net for everything else failing too.
+    // Whatever the reason, close everything, move the box files aside and
     // start empty — an app that opens with nothing in it can still be told
     // what happened, one that does not open cannot.
-    Loggers.app.warning('Stores.init after sandbox import', e, s);
-    // Closed before the files are deleted. `Stores.init` may have opened
-    // several boxes before the one that threw, and unlinking a `.hive` out
-    // from under a live handle is undefined at best: on Windows the delete
-    // fails outright and the copy stays, so the retry below reopens exactly
-    // the data that just failed to open.
+    Loggers.app.warning('Stores.init failed', e, s);
     await Hive.close();
     await getIt.reset();
-    await SandboxImport.undo();
+    if (imported == SandboxImportResult.imported) {
+      await SandboxImport.undo();
+    }
+    await Stores.quarantineAll();
     await Stores.init();
   }
 
@@ -208,10 +224,16 @@ Future<void> _doPlatformRelated() async {
     unawaited(MethodChans.syncAccessoryWidgetUrl());
   }
 
-  final serversCount = Stores.server.keys().length;
-  await Computer.shared.turnOn(
-    workersCount: (serversCount / 3).round() + 1,
-  ); // Plus 1 to avoid 0.
+  // Best-effort: a failure here (isolate spawn, worker handshake) must not
+  // take the app down with it.
+  try {
+    final serversCount = Stores.server.keys().length;
+    await Computer.shared.turnOn(
+      workersCount: (serversCount / 3).round() + 1,
+    ); // Plus 1 to avoid 0.
+  } catch (e, s) {
+    Loggers.app.warning('Failed to start Computer isolates', e, s);
+  }
 }
 
 // It may contains some async heavy funcs.

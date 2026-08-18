@@ -1365,4 +1365,8 @@ class AppLocalizationsKo extends AppLocalizations {
   String macDmgImportedPartly(String path) {
     return '이전에 설치된 빌드의 데이터를 가져왔습니다. 다운로드한 파일은 $path에 그대로 있습니다.';
   }
+
+  @override
+  String get dataRecovered =>
+      'Some local data could not be read and was reset. Servers and settings may have been lost.';
 }

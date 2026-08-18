@@ -1433,4 +1433,8 @@ class AppLocalizationsTr extends AppLocalizations {
   String macDmgImportedPartly(String path) {
     return 'Daha önce yüklü sürümün verileri içe aktarıldı. İndirilen dosyalar $path konumunda kaldı.';
   }
+
+  @override
+  String get dataRecovered =>
+      'Some local data could not be read and was reset. Servers and settings may have been lost.';
 }

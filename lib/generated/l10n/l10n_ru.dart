@@ -1453,4 +1453,8 @@ class AppLocalizationsRu extends AppLocalizations {
   String macDmgImportedPartly(String path) {
     return 'Данные ранее установленной сборки импортированы. Загруженные файлы остались в $path.';
   }
+
+  @override
+  String get dataRecovered =>
+      'Some local data could not be read and was reset. Servers and settings may have been lost.';
 }

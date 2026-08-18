@@ -58,6 +58,7 @@ dependencies:
       ref: v1.0.88
   watch_connectivity:
     path: packages/watch_connectivity
+  path_provider: ^2.1.4
   plain_notification_token:
     path: packages/plain_notification_token
   fl_lib:

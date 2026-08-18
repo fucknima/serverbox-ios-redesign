@@ -1,5 +1,9 @@
+import 'dart:io';
+
 import 'package:fl_lib/fl_lib.dart';
 import 'package:get_it/get_it.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:server_box/core/utils/data_recovery.dart';
 import 'package:server_box/data/store/agent_conversation.dart';
 import 'package:server_box/data/store/connection_stats.dart';
 import 'package:server_box/data/store/container.dart';
@@ -61,7 +65,18 @@ abstract final class Stores {
       () => PortForwardStore.instance,
     );
 
-    await Future.wait(_allStores.map((store) => store.init()));
+    for (final store in _allStores) {
+      try {
+        await store.init();
+      } catch (e, s) {
+        // A box that cannot be opened — a file cut off by a kill mid-write,
+        // or an encryption key the keychain no longer holds — would take the
+        // whole app down at launch. Quarantine the files and start the store
+        // empty: losing the data is recoverable, losing the app is not.
+        Loggers.app.warning('Failed to open ${store.boxName}', e, s);
+        await _recoverStore(store);
+      }
+    }
 
     await setting.removeRetiredKeys();
 
@@ -72,6 +87,56 @@ abstract final class Stores {
     if (connectionStats.indexDbKeys.isEmpty) {
       await connectionStats.rebuildIndexAndCompact();
     }
+  }
+
+  /// Quarantine a store whose box failed to open, then retry it.
+  ///
+  /// The file is moved aside (renamed, not deleted) so a later build or a
+  /// manual look can still reach it; the retry opens a fresh empty box.
+  static Future<void> _recoverStore(HiveStore store) async {
+    DataRecovery.recovered = true;
+    await _quarantineFiles(store.boxName);
+    await store.init();
+  }
+
+  /// Quarantine every store's box files. The net for a failure the
+  /// per-store recovery above could not fix: close everything, move all box
+  /// files aside, and let a fresh [init] start the app empty.
+  static Future<void> quarantineAll() async {
+    DataRecovery.recovered = true;
+    for (final store in _allStores) {
+      await _quarantineFiles(store.boxName);
+    }
+  }
+
+  static Future<void> _quarantineFiles(String boxName) async {
+    final path = await _boxDir();
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    for (final name in [boxName, '${boxName}_enc']) {
+      for (final ext in ['hive', 'lock']) {
+        final file = File('$path/$name.$ext');
+        try {
+          if (await file.exists()) {
+            await file.rename('$path/$name.corrupt-$ts.$ext');
+          }
+        } catch (e, s) {
+          Loggers.app.warning('Failed to quarantine $name.$ext', e, s);
+          try {
+            await file.delete();
+          } catch (_) {
+            // Best effort; the fresh open will fail again and be retried.
+          }
+        }
+      }
+    }
+  }
+
+  static Future<String> _boxDir() async {
+    return switch (Pfs.type) {
+      Pfs.linux || Pfs.windows => Paths.doc,
+      Pfs.macos when !Pfs.isMacSandboxed => Paths.doc,
+      _ => (await getApplicationDocumentsDirectory()).path,
+    };
   }
 
   static int get lastModTime {

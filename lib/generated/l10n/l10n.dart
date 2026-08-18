@@ -2555,6 +2555,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Imported the data of the previously installed build. Downloaded files were left where they were, in {path}.'**
   String macDmgImportedPartly(String path);
+
+  /// No description provided for @dataRecovered.
+  ///
+  /// In en, this message translates to:
+  /// **'Some local data could not be read and was reset. Servers and settings may have been lost.'**
+  String get dataRecovered;
 }
 
 class _AppLocalizationsDelegate

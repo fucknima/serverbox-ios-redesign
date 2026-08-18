@@ -1461,4 +1461,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String macDmgImportedPartly(String path) {
     return 'Se importaron los datos de la versión instalada anteriormente. Los archivos descargados se quedaron en $path.';
   }
+
+  @override
+  String get dataRecovered =>
+      'Some local data could not be read and was reset. Servers and settings may have been lost.';
 }

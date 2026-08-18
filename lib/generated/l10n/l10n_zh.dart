@@ -1329,6 +1329,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String macDmgImportedPartly(String path) {
     return '已导入此前安装版本的数据。下载的文件仍在原处:$path。';
   }
+
+  @override
+  String get dataRecovered => '部分本地数据无法读取,已重置。服务器和设置可能已丢失。';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
