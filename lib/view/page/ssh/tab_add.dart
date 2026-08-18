@@ -68,6 +68,8 @@ class _AddPageState extends ConsumerState<_AddPage> {
       return Center(child: Text(libL10n.empty, textAlign: TextAlign.center));
     }
 
+    if (isIOS) return _buildIos(state, order);
+
     return MasonryList(
       columnWidth: _kServerColumnWidth,
       children: [
@@ -102,6 +104,48 @@ class _AddPageState extends ConsumerState<_AddPage> {
             onTap: () => widget.onTap(spi),
             onLongPress: () => widget.onLongPress(spi),
           ),
+      ],
+    );
+  }
+
+  /// The iPhone picker: one grouped section of rows instead of the card grid.
+  Widget _buildIos(ServersState state, List<String> order) {
+    return IosGroupedList(
+      children: [
+        IosSection(
+          children: [
+            if (LocalShellBackend.isSupported)
+              IosRow(
+                title: libL10n.device,
+                subtitle: LocalShellBackend.shellPath,
+                leading: const IosSettingsIcon(Icons.smartphone),
+                chevron: true,
+                onTap: widget.onLocal,
+              ),
+            if (Rootfs.isAvailable)
+              IosRow(
+                title: 'Alpine ${Rootfs.version}',
+                subtitle: Rootfs.isOutdated
+                    ? '${libL10n.update}: ${AndroidRootfs.version}'
+                    : l10n.rootfsSubtitle,
+                leading: const IosSettingsIcon(Icons.terminal),
+                chevron: true,
+                onTap: widget.onRootfs,
+                onLongPress: widget.onRemoveRootfs,
+              ),
+            for (final id in order)
+              if (state.servers[id] case final spi?)
+                IosRow(
+                  key: ValueKey(id),
+                  title: spi.name,
+                  subtitle: spi.displayAddr,
+                  leading: const IosSettingsIcon(BoxIcons.bx_server),
+                  chevron: true,
+                  onTap: () => widget.onTap(spi),
+                  onLongPress: () => widget.onLongPress(spi),
+                ),
+          ],
+        ),
       ],
     );
   }
