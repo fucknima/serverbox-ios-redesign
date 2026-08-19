@@ -88,16 +88,53 @@ extension on _ContainerPageState {
     argsCtrl.dispose();
   }
 
+  Future<bool?> _confirmIos({
+    required String title,
+    required Widget Function(BuildContext, StateSetter) content,
+    String? confirmLabel,
+  }) {
+    return showCupertinoDialog<bool>(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: Text(title),
+        content: StatefulBuilder(
+          builder: (_, setState) => SingleChildScrollView(
+            child: content(ctx, setState),
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(libL10n.cancel),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(confirmLabel ?? libL10n.confirm),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _showPruneDialog({
     required String title,
     String? message,
     required Future<ContainerErr?> Function() onConfirm,
   }) async {
-    final confirmed = await context.showRoundDialog<bool>(
-      title: title,
-      child: Text(message ?? libL10n.askContinue('${libL10n.prune} $title')),
-      actions: Btnx.cancelRedOk,
-    );
+    final confirmed = isIOS
+        ? await _confirmIos(
+            title: title,
+            content: (_, _) => Text(
+              message ?? libL10n.askContinue('${libL10n.prune} $title'),
+            ),
+          )
+        : await context.showRoundDialog<bool>(
+            title: title,
+            child: Text(message ?? libL10n.askContinue('${libL10n.prune} $title')),
+            actions: Btnx.cancelRedOk,
+          );
     if (confirmed == true && mounted) await _execContainerAction(onConfirm);
   }
 
@@ -109,26 +146,39 @@ extension on _ContainerPageState {
         ? null
         : countUnusedTaggedImages(images, containerImages);
     var allUnused = false;
-    final confirmed = await context.showRoundDialog<bool>(
-      title: l10n.pruneImages,
-      child: StatefulBuilder(
-        builder: (_, setState) {
-          return SingleChildScrollView(
-            child: ContainerImagePruneOptionsView(
+    final confirmed = isIOS
+        ? await _confirmIos(
+            title: l10n.pruneImages,
+            content: (_, setState) => ContainerImagePruneOptionsView(
               danglingCount: danglingCount,
               unusedTaggedCount: unusedTaggedCount,
               allUnused: allUnused,
-              onAllUnusedChanged: (value) =>
-                  setState(() => allUnused = value),
+              onAllUnusedChanged: (value) => setState(() => allUnused = value),
               commandPreview: _runtimePruneCommand(
                 buildContainerImagePruneCmd(allUnused: allUnused),
               ),
             ),
+          )
+        : await context.showRoundDialog<bool>(
+            title: l10n.pruneImages,
+            child: StatefulBuilder(
+              builder: (_, setState) {
+                return SingleChildScrollView(
+                  child: ContainerImagePruneOptionsView(
+                    danglingCount: danglingCount,
+                    unusedTaggedCount: unusedTaggedCount,
+                    allUnused: allUnused,
+                    onAllUnusedChanged: (value) =>
+                        setState(() => allUnused = value),
+                    commandPreview: _runtimePruneCommand(
+                      buildContainerImagePruneCmd(allUnused: allUnused),
+                    ),
+                  ),
+                );
+              },
+            ),
+            actions: Btnx.cancelRedOk,
           );
-        },
-      ),
-      actions: Btnx.cancelRedOk,
-    );
     if (confirmed == true && mounted) {
       await _execContainerAction(
         () => _containerNotifier.pruneImages(allUnused: allUnused),
@@ -139,12 +189,10 @@ extension on _ContainerPageState {
   Future<void> _showSystemPruneDialog() async {
     var allUnusedImages = false;
     var includeVolumes = false;
-    final confirmed = await context.showRoundDialog<bool>(
-      title: l10n.pruneUnusedData,
-      child: StatefulBuilder(
-        builder: (_, setState) {
-          return SingleChildScrollView(
-            child: ContainerSystemPruneOptionsView(
+    final confirmed = isIOS
+        ? await _confirmIos(
+            title: l10n.pruneUnusedData,
+            content: (_, setState) => ContainerSystemPruneOptionsView(
               allUnusedImages: allUnusedImages,
               includeVolumes: includeVolumes,
               onAllUnusedImagesChanged: (value) =>
@@ -158,11 +206,31 @@ extension on _ContainerPageState {
                 ),
               ),
             ),
+          )
+        : await context.showRoundDialog<bool>(
+            title: l10n.pruneUnusedData,
+            child: StatefulBuilder(
+              builder: (_, setState) {
+                return SingleChildScrollView(
+                  child: ContainerSystemPruneOptionsView(
+                    allUnusedImages: allUnusedImages,
+                    includeVolumes: includeVolumes,
+                    onAllUnusedImagesChanged: (value) =>
+                        setState(() => allUnusedImages = value),
+                    onIncludeVolumesChanged: (value) =>
+                        setState(() => includeVolumes = value),
+                    commandPreview: _runtimePruneCommand(
+                      buildContainerSystemPruneCmd(
+                        allUnusedImages: allUnusedImages,
+                        includeVolumes: includeVolumes,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+            actions: Btnx.cancelRedOk,
           );
-        },
-      ),
-      actions: Btnx.cancelRedOk,
-    );
     if (confirmed == true && mounted) {
       await _execContainerAction(
         () => _containerNotifier.pruneSystem(

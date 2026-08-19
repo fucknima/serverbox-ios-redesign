@@ -19,7 +19,9 @@ import 'package:server_box/data/res/store.dart';
 import 'package:server_box/data/ssh/terminal_source.dart';
 import 'package:server_box/view/page/container/resource_views.dart';
 import 'package:server_box/view/page/ssh/page/page.dart';
+import 'package:server_box/view/platform/ios_list.dart';
 import 'package:server_box/view/platform/ios_nav.dart';
+import 'package:server_box/view/platform/ios_palette.dart';
 import 'package:server_box/view/widget/page_columns.dart';
 import 'package:server_box/view/widget/page_issue.dart';
 
@@ -281,6 +283,20 @@ extension _ContainerPageWidgets on _ContainerPageState {
     required Key refreshKey,
     required VoidCallback? onRefresh,
   }) {
+    if (isIOS) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          pruneAction,
+          CupertinoButton(
+            key: refreshKey,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            onPressed: onRefresh,
+            child: const Icon(CupertinoIcons.refresh, size: 19),
+          ),
+        ],
+      );
+    }
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -300,6 +316,18 @@ extension _ContainerPageWidgets on _ContainerPageState {
     required String label,
     required VoidCallback? onPressed,
   }) {
+    if (isIOS) {
+      return CupertinoButton(
+        key: key,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        onPressed: onPressed,
+        child: const Icon(
+          CupertinoIcons.clear_circled_solid,
+          size: 17,
+          color: CupertinoColors.systemOrange,
+        ),
+      );
+    }
     return IconButton(
       key: key,
       tooltip: label,
@@ -309,6 +337,25 @@ extension _ContainerPageWidgets on _ContainerPageState {
   }
 
   Widget _buildSettingsTab(ContainerState containerState) {
+    if (isIOS) {
+      return ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        children: [
+          IosSection(
+            children: [
+              for (final item in _SettingsMenuItems.values)
+                _buildIosSettingTile(item, containerState),
+            ],
+          ),
+          const SizedBox(height: 28),
+          IosSection(
+            children: [
+              for (final type in _PruneTypes.values) _buildIosPruneRow(type),
+            ],
+          ),
+        ],
+      );
+    }
     return PageColumns(
         children: <Widget>[
           ..._SettingsMenuItems.values.map(
@@ -319,9 +366,94 @@ extension _ContainerPageWidgets on _ContainerPageState {
     );
   }
 
+  Widget _buildIosSettingTile(
+    _SettingsMenuItems item,
+    ContainerState containerState,
+  ) {
+    final String title;
+    switch (item) {
+      case _SettingsMenuItems.editContainerHost:
+        final hostVariable = containerState.type == ContainerType.podman
+            ? 'CONTAINER_HOST'
+            : 'DOCKER_HOST';
+        title = '${libL10n.edit} $hostVariable';
+        break;
+      case _SettingsMenuItems.switchProvider:
+        title = containerState.type == ContainerType.podman
+            ? l10n.switchTo('Docker')
+            : l10n.switchTo('Podman');
+        break;
+    }
+    return IosRow(
+      key: ValueKey('container-setting-${item.name}'),
+      leading: IosSettingsIcon(item.icon, color: containerState.type == ContainerType.podman ? IosPalette.orange(context) : IosPalette.blue(context)),
+      title: title,
+      chevron: true,
+      onTap: _containerActionsBusy ? null : () {
+        switch (item) {
+          case _SettingsMenuItems.editContainerHost:
+            _showEditHostDialog();
+            break;
+          case _SettingsMenuItems.switchProvider:
+            final changed = ref
+                .read(_provider.notifier)
+                .setType(
+                  containerState.type == ContainerType.docker
+                      ? ContainerType.podman
+                      : ContainerType.docker,
+                );
+            if (changed) {
+              unawaited(_refreshContainerTab(_lastResourceTab));
+            }
+            break;
+        }
+      },
+    );
+  }
+
+  Widget _buildIosPruneRow(_PruneTypes type) {
+    return IosRow(
+      key: ValueKey('container-setting-prune-${type.name}'),
+      leading: IosSettingsIcon(type.icon),
+      title: type.label,
+      chevron: true,
+      onTap: _containerActionsBusy
+          ? null
+          : () async {
+              switch (type) {
+                case _PruneTypes.volumes:
+                  await _showPruneDialog(
+                    title: type.label,
+                    onConfirm: _containerNotifier.pruneVolumes,
+                  );
+                  break;
+                case _PruneTypes.unusedData:
+                  await _showSystemPruneDialog();
+                  break;
+              }
+            },
+    );
+  }
+
   Widget? _buildEmptyStateMessage(ContainerState containerState) {
     final emptyPs = containerState.items?.isEmpty ?? true;
     if (emptyPs && containerState.runLog == null) {
+      if (isIOS) {
+        return IosSection(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Text(
+                l10n.dockerEmptyRunningItems,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: IosPalette.secondaryLabel(context),
+                ),
+              ),
+            ),
+          ],
+        );
+      }
       return CardX(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(17, 17, 17, 7),
@@ -333,6 +465,26 @@ extension _ContainerPageWidgets on _ContainerPageState {
   }
 
   Widget _buildImageMoreBtn(ContainerImg image) {
+    if (isIOS) {
+      return IgnorePointer(
+        ignoring: _containerActionsBusy,
+        child: CupertinoButton(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          onPressed: () => _showIosMenu(
+            title: image.repository ?? image.id ?? '',
+            entries: [
+              for (final e in ImageMenu.items)
+                (
+                  label: e.toStr,
+                  destructive: e == ImageMenu.rm,
+                  run: () => _onTapImageMenu(e, image),
+                ),
+            ],
+          ),
+          child: const Icon(CupertinoIcons.ellipsis, size: 18),
+        ),
+      );
+    }
     return IgnorePointer(
       ignoring: _containerActionsBusy,
       child: PopupMenu<ImageMenu>(
@@ -355,14 +507,34 @@ extension _ContainerPageWidgets on _ContainerPageState {
     final hasWorkingDir = groupItems.any(
       (e) => e.workingDir?.isNotEmpty ?? false,
     );
+    final menuItems = ContainerGroupMenu.items(
+      anyRunning: groupItems.any((e) => e.status.isRunning),
+      anyStopped: groupItems.any((e) => e.status.isStopped),
+    ).where((e) => e != ContainerGroupMenu.logs || hasWorkingDir);
+    if (isIOS) {
+      return IgnorePointer(
+        ignoring: _containerActionsBusy,
+        child: CupertinoButton(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          onPressed: () => _showIosMenu(
+            title: project,
+            entries: [
+              for (final e in menuItems)
+                (
+                  label: e.toStr,
+                  destructive: e == ContainerGroupMenu.stop,
+                  run: () => _onTapGroupMenu(e, groupItems),
+                ),
+            ],
+          ),
+          child: const Icon(CupertinoIcons.ellipsis, size: 18),
+        ),
+      );
+    }
     return IgnorePointer(
       ignoring: _containerActionsBusy,
       child: PopupMenu(
-        items: ContainerGroupMenu.items(
-          anyRunning: groupItems.any((e) => e.status.isRunning),
-          anyStopped: groupItems.any((e) => e.status.isStopped),
-        )
-            .where((e) => e != ContainerGroupMenu.logs || hasWorkingDir)
+        items: menuItems
             .map((e) => PopMenu.build(e, e.icon, e.toStr))
             .toList(),
         onSelected: (item) => _onTapGroupMenu(item, groupItems),
@@ -371,13 +543,61 @@ extension _ContainerPageWidgets on _ContainerPageState {
   }
 
   Widget _buildMoreBtn(ContainerPs dItem) {
+    final menuItems = ContainerMenu.items(dItem.status);
+    if (isIOS) {
+      return IgnorePointer(
+        ignoring: _containerActionsBusy,
+        child: CupertinoButton(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          onPressed: () => _showIosMenu(
+            title: dItem.name ?? '',
+            entries: [
+              for (final e in menuItems)
+                (
+                  label: e.toStr,
+                  destructive: e == ContainerMenu.stop,
+                  run: () => _onTapMoreBtn(e, dItem),
+                ),
+            ],
+          ),
+          child: const Icon(CupertinoIcons.ellipsis, size: 18),
+        ),
+      );
+    }
     return IgnorePointer(
       ignoring: _containerActionsBusy,
       child: PopupMenu(
-        items: ContainerMenu.items(
-          dItem.status,
-        ).map((e) => PopMenu.build(e, e.icon, e.toStr)).toList(),
+        items: menuItems.map((e) => PopMenu.build(e, e.icon, e.toStr)).toList(),
         onSelected: (item) => _onTapMoreBtn(item, dItem),
+      ),
+    );
+  }
+
+  /// The shared iOS "…" action sheet for container/image/group menus.
+  void _showIosMenu({
+    required String title,
+    required List<({String label, bool destructive, VoidCallback run})> entries,
+  }) {
+    showCupertinoModalPopup<void>(
+      context: context,
+      builder: (ctx) => CupertinoActionSheet(
+        title: Text(title),
+        actions: [
+          for (final e in entries)
+            CupertinoActionSheetAction(
+              isDestructiveAction: e.destructive,
+              onPressed: () {
+                Navigator.pop(ctx);
+                e.run();
+              },
+              child: Text(e.label),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          isDefaultAction: true,
+          onPressed: () => Navigator.pop(ctx),
+          child: Text(libL10n.cancel),
+        ),
       ),
     );
   }

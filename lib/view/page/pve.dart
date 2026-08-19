@@ -11,7 +11,9 @@ import 'package:server_box/data/model/app/error.dart';
 import 'package:server_box/data/model/server/pve.dart';
 import 'package:server_box/data/model/server/server_private_info.dart';
 import 'package:server_box/data/provider/pve.dart';
+import 'package:server_box/view/platform/ios_list.dart';
 import 'package:server_box/view/platform/ios_nav.dart';
+import 'package:server_box/view/platform/ios_palette.dart';
 import 'package:server_box/view/widget/percent_circle.dart';
 
 final class PvePageArgs {
@@ -32,6 +34,52 @@ final class PvePage extends ConsumerStatefulWidget {
     page: PvePage.new,
     path: '/pve',
   );
+}
+
+final class _PveVmStats {
+  const _PveVmStats({
+    required this.cpu,
+    required this.maxcpu,
+    required this.mem,
+    required this.maxmem,
+    required this.diskread,
+    required this.diskwrite,
+    required this.netin,
+    required this.netout,
+  });
+
+  final double cpu;
+  final int maxcpu;
+  final int mem;
+  final int maxmem;
+  final int diskread;
+  final int diskwrite;
+  final int netin;
+  final int netout;
+
+  static _PveVmStats of(PveResIface it) => switch (it) {
+        final PveQemu q => _PveVmStats(
+            cpu: q.cpu,
+            maxcpu: q.maxcpu,
+            mem: q.mem,
+            maxmem: q.maxmem,
+            diskread: q.diskread,
+            diskwrite: q.diskwrite,
+            netin: q.netin,
+            netout: q.netout,
+          ),
+        final PveLxc l => _PveVmStats(
+            cpu: l.cpu,
+            maxcpu: l.maxcpu,
+            mem: l.mem,
+            maxmem: l.maxmem,
+            diskread: l.diskread,
+            diskwrite: l.diskwrite,
+            netin: l.netin,
+            netout: l.netout,
+          ),
+        _ => throw ArgumentError('not a vm'),
+      };
 }
 
 const _kHorziPadding = 11.0;
@@ -141,6 +189,7 @@ final class _PvePageState extends ConsumerState<PvePage> {
     if (data == null) {
       return _buildLoading(loadingStep);
     }
+    if (isIOS) return _buildIosBody(data);
 
     PveResType? lastType;
     return ListView.builder(
@@ -189,6 +238,55 @@ final class _PvePageState extends ConsumerState<PvePage> {
     );
   }
 
+  Widget _buildIosBody(PveRes data) {
+    final sections = <Widget>[];
+    PveResType? lastType;
+    for (var i = 0; i < data.length; i++) {
+      final item = data[i];
+      final type = switch (item) {
+        final PveNode _ => PveResType.node,
+        final PveQemu _ => PveResType.qemu,
+        final PveLxc _ => PveResType.lxc,
+        final PveStorage _ => PveResType.storage,
+        final PveSdn _ => PveResType.sdn,
+      };
+      if (type != lastType) {
+        lastType = type;
+        sections.add(Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              type.toStr,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: IosPalette.secondaryLabel(context),
+              ),
+            ),
+          ),
+        ));
+      }
+      final card = switch (item) {
+        final PveNode _ => _buildIosNode(item),
+        final PveQemu _ => _buildIosVm(item, item, isLxc: false),
+        final PveLxc _ => _buildIosVm(item, item, isLxc: true),
+        final PveStorage _ => _buildIosStorage(item),
+        final PveSdn _ => _buildIosSdn(item),
+      };
+      sections.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: card,
+        ),
+      );
+    }
+    return ListView(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      children: sections,
+    );
+  }
+
   Widget _buildLoading(PveLoadingStep step) {
     final String message = switch (step) {
       PveLoadingStep.forwarding => l10n.pveLoadingForwarding,
@@ -200,10 +298,266 @@ final class _PvePageState extends ConsumerState<PvePage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const CircularProgressIndicator(),
+          if (isIOS)
+            const CupertinoActivityIndicator(radius: 14)
+          else
+            const CircularProgressIndicator(),
           const SizedBox(height: 17),
-          Text(message, style: UIs.text13Grey),
+          Text(
+            message,
+            style: isIOS
+                ? TextStyle(
+                    fontSize: 13,
+                    color: IosPalette.secondaryLabel(context),
+                  )
+                : UIs.text13Grey,
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildIosNode(PveNode item) {
+    return IosSection(
+      separatorInset: 16,
+      children: [
+        IosRow(
+          title: item.node,
+          trailing: Text(
+            item.topRight,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              color: IosPalette.secondaryLabel(context),
+            ),
+          ),
+        ),
+        IosRow(
+          title: 'CPU',
+          trailingFlex: 0.45,
+          trailing: Text(
+            '${(item.cpu * 100).toStringAsFixed(1)} %',
+            style: const TextStyle(fontSize: 15),
+          ),
+        ),
+        _buildIosProgress(item.cpu / item.maxcpu),
+        IosRow(
+          title: 'RAM',
+          subtitle: '${item.mem.bytes2Str} / ${item.maxmem.bytes2Str}',
+          trailingFlex: 0.45,
+          trailing: Text(
+            item.maxmem.bytes2Str,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 15),
+          ),
+        ),
+        _buildIosProgress(item.mem / item.maxmem),
+      ],
+    );
+  }
+
+  Widget _buildIosProgress(double value) {
+    final clamped = value.clamp(0.0, 1.0);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 2),
+      child: SizedBox(
+        height: 4,
+        child: value <= 0 || value.isNaN
+            ? const SizedBox.shrink()
+            : ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: ColoredBox(
+                  color: IosPalette.gray(context, level: isDark ? 2 : 3),
+                  child: FractionallySizedBox(
+                    alignment: Alignment.centerLeft,
+                    widthFactor: clamped,
+                    child: ColoredBox(color: IosPalette.teal(context)),
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildIosVm(PveCtrlIface item, PveResIface raw, {required bool isLxc}) {
+    final stats = _PveVmStats.of(raw);
+    final status = _buildIosCtrlBtns(item);
+    if (!item.available) {
+      return IosSection(
+        children: [
+          IosRow(title: _wrapNodeName(item), subtitle: item.summary, trailing: status),
+        ],
+      );
+    }
+    // VM rows compress nicely into value rows: CPU %, RAM, disk r/w, net.
+    final cpuPct = (stats.cpu / stats.maxcpu) * 100;
+    final memPct = (stats.mem / stats.maxmem) * 100;
+    return IosSection(
+      children: [
+        IosRow(
+          title: _wrapNodeName(item),
+          subtitle: item.summary,
+          trailing: status,
+        ),
+        IosRow(
+          title: 'CPU',
+          trailingFlex: 0.45,
+          trailing: Text(
+            cpuPct.isFinite ? '${cpuPct.toStringAsFixed(0)} %' : '--',
+            style: const TextStyle(fontSize: 15),
+          ),
+        ),
+        _buildIosProgress(stats.cpu / stats.maxcpu),
+        IosRow(
+          title: 'RAM',
+          trailingFlex: 0.5,
+          trailing: Text(
+            memPct.isFinite ? '${memPct.toStringAsFixed(0)} %' : '--',
+            style: const TextStyle(fontSize: 15),
+          ),
+        ),
+        _buildIosProgress(stats.mem / stats.maxmem),
+        IosRow(
+          title: l10n.read,
+          trailingFlex: 0.45,
+          trailing: Text(
+            stats.diskread.bytes2Str,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 15),
+          ),
+        ),
+        IosRow(
+          title: l10n.write,
+          trailingFlex: 0.45,
+          trailing: Text(
+            stats.diskwrite.bytes2Str,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 15),
+          ),
+        ),
+        IosRow(
+          title: '${libL10n.download} ↓',
+          trailingFlex: 0.45,
+          trailing: Text(
+            stats.netin.bytes2Str,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 15),
+          ),
+        ),
+        IosRow(
+          title: '${libL10n.upload} ↑',
+          trailingFlex: 0.45,
+          trailing: Text(
+            stats.netout.bytes2Str,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 15),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildIosStorage(PveStorage item) {
+    return IosSection(
+      children: [
+        IosRow(
+          title: _wrapNodeName(item),
+          subtitle: item.summary,
+          trailing: Text(
+            item.content,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 14),
+          ),
+        ),
+        IosValueRow(title: l10n.plugInType, value: item.plugintype),
+      ],
+    );
+  }
+
+  Widget _buildIosSdn(PveSdn item) {
+    return IosSection(
+      children: [
+        IosRow(
+          title: _wrapNodeName(item),
+          trailing: Text(
+            item.summary,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 14,
+              color: IosPalette.secondaryLabel(context),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Control buttons for a QEMU/LXC: start / stop / restart / shutdown as an
+  /// iOS action sheet, labelled from the trailing ellipsis. The destructive
+  /// ones confirm through a Cupertino alert.
+  Widget _buildIosCtrlBtns(PveCtrlIface item) {
+    return CupertinoButton(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      onPressed: () => _showIosCtrlMenu(item),
+      child: const Icon(CupertinoIcons.ellipsis, size: 18),
+    );
+  }
+
+  void _showIosCtrlMenu(PveCtrlIface item) {
+    final ctxt = context;
+    showCupertinoModalPopup<void>(
+      context: ctxt,
+      builder: (ctx) => CupertinoActionSheet(
+        title: Text(_wrapNodeName(item)),
+        message: item.summary.isEmpty ? null : Text(item.summary),
+        actions: [
+          if (!item.available)
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _onCtrl(libL10n.start, item, () => _notifier.start(item.node, item.id));
+              },
+              child: Text(libL10n.start),
+            )
+          else ...[
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _onCtrl(libL10n.stop, item, () => _notifier.stop(item.node, item.id));
+              },
+              child: Text(libL10n.stop),
+            ),
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _onCtrl(libL10n.reboot, item, () => _notifier.reboot(item.node, item.id));
+              },
+              child: Text(libL10n.reboot),
+            ),
+            CupertinoActionSheetAction(
+              isDestructiveAction: true,
+              onPressed: () {
+                Navigator.pop(ctx);
+                _onCtrl(libL10n.shutdown, item, () => _notifier.shutdown(item.node, item.id));
+              },
+              child: Text(libL10n.shutdown),
+            ),
+          ],
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          isDefaultAction: true,
+          onPressed: () => Navigator.pop(ctx),
+          child: Text(libL10n.cancel),
+        ),
       ),
     );
   }
@@ -541,11 +895,35 @@ extension on _PvePageState {
     PveCtrlIface item,
     Future<bool> Function() func,
   ) async {
-    final sure = await context.showRoundDialog<bool>(
-      title: libL10n.attention,
-      child: Text(libL10n.askContinue('$action ${item.id}')),
-      actions: Btnx.okReds,
-    );
+    if (!mounted) return;
+    bool? sure;
+    if (isIOS) {
+      sure = await showCupertinoDialog<bool>(
+        context: context,
+        builder: (ctx) => CupertinoAlertDialog(
+          title: Text(libL10n.attention),
+          content: Text(libL10n.askContinue('$action ${item.id}')),
+          actions: [
+            CupertinoDialogAction(
+              isDefaultAction: true,
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(libL10n.cancel),
+            ),
+            CupertinoDialogAction(
+              isDestructiveAction: true,
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(action),
+            ),
+          ],
+        ),
+      );
+    } else {
+      sure = await context.showRoundDialog<bool>(
+        title: libL10n.attention,
+        child: Text(libL10n.askContinue('$action ${item.id}')),
+        actions: Btnx.okReds,
+      );
+    }
     if (sure != true) return;
 
     final (suc, err) = await context.showLoadingDialog(fn: func);
