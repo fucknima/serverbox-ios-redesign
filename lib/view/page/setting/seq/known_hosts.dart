@@ -1,8 +1,11 @@
 import 'package:fl_lib/fl_lib.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:server_box/core/extension/context/locale.dart';
 import 'package:server_box/core/utils/server.dart';
 import 'package:server_box/data/res/store.dart';
+import 'package:server_box/view/platform/ios_list.dart';
+import 'package:server_box/view/platform/ios_palette.dart';
 
 /// Every host key this app has accepted, and a way to take one back.
 ///
@@ -85,23 +88,95 @@ class _KnownHostsPageState extends State<KnownHostsPage> {
   Widget build(BuildContext context) {
     final body = _grouped.isEmpty
         ? Center(child: Text(libL10n.empty, style: UIs.textGrey))
-        : ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 7),
-            children: [
-              CardX(
-                child: Padding(
-                  padding: const EdgeInsets.all(13),
-                  child: Text(l10n.sshKnownHostKeysTip, style: UIs.textGrey),
-                ),
-              ),
-              for (final entry in _grouped.entries)
-                CardX(child: _buildServer(entry.key, entry.value)),
-            ],
-          );
+        : (isIOS
+              ? ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+                      child: Text(
+                        l10n.sshKnownHostKeysTip,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: IosPalette.secondaryLabelByBrightness(
+                            Theme.of(context).brightness == Brightness.dark,
+                          ),
+                        ),
+                      ),
+                    ),
+                    for (final entry in _grouped.entries)
+                      _buildIosServer(entry.key, entry.value),
+                  ],
+                )
+              : ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 7),
+                  children: [
+                    CardX(
+                      child: Padding(
+                        padding: const EdgeInsets.all(13),
+                        child: Text(
+                          l10n.sshKnownHostKeysTip,
+                          style: UIs.textGrey,
+                        ),
+                      ),
+                    ),
+                    for (final entry in _grouped.entries)
+                      CardX(child: _buildServer(entry.key, entry.value)),
+                  ],
+                ));
     if (widget.embedded) return body;
     return Scaffold(
       appBar: CustomAppBar(title: Text(l10n.sshKnownHostKeys)),
       body: body,
+    );
+  }
+
+  Widget _buildIosServer(String serverId, List<KnownHostKey> keys) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: IosPalette.secondaryGroupedBackgroundByBrightness(isDark),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          IosRow(
+            title: _label(serverId),
+            titleMaxLines: 1,
+            subtitle: '${keys.length} ${l10n.sshHostKeyType}',
+            leading: const IosSettingsIcon(CupertinoIcons.square_stack_3d_up),
+            chevron: true,
+            trailing: IconButton(
+              tooltip: libL10n.delete,
+              icon: const Icon(CupertinoIcons.trash, size: 18),
+              onPressed: () => _forget(serverId: serverId),
+            ),
+            onTap: () {},
+          ),
+          for (final key in keys)
+            Container(
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: IosPalette.separatorByBrightness(isDark)),
+                ),
+              ),
+              child: IosRow(
+                title: key.keyType.isEmpty ? libL10n.unknown : key.keyType,
+                titleMaxLines: 1,
+                subtitle: key.fingerprint,
+                subtitleMaxLines: 2,
+                trailing: IconButton(
+                  tooltip: libL10n.delete,
+                  icon: const Icon(CupertinoIcons.xmark, size: 16),
+                  onPressed: () => _forget(storageKey: key.storageKey),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 

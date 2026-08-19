@@ -1,4 +1,5 @@
 import 'package:fl_lib/fl_lib.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +7,8 @@ import 'package:server_box/core/extension/context/locale.dart';
 import 'package:server_box/data/model/server/server_private_info.dart';
 import 'package:server_box/data/provider/server/all.dart';
 import 'package:server_box/view/page/setting/seq/reorder_proxy_decorator.dart';
+import 'package:server_box/view/platform/ios_list.dart';
+import 'package:server_box/view/platform/ios_palette.dart';
 
 class ServerOrderPage extends ConsumerStatefulWidget {
     /// Whether it is being shown inside the settings pane rather than pushed.
@@ -60,6 +63,32 @@ class _ServerOrderPageState extends ConsumerState<ServerOrderPage> {
     if (order.isEmpty) {
       return Center(child: Text(libL10n.empty));
     }
+    if (isIOS) {
+      return ReorderableListView.builder(
+        onReorderItem: (oldIndex, newIndex) {
+          final targetIndex = newIndex;
+          if (targetIndex == oldIndex) return;
+          final newOrder = List<String>.from(order);
+          final moved = newOrder.removeAt(oldIndex);
+          newOrder.insert(targetIndex, moved);
+          setState(() => _order = newOrder);
+          ref.read(serversProvider.notifier).updateServerOrder(newOrder);
+        },
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+        buildDefaultDragHandles: false,
+        proxyDecorator: (child, _, _) => Material(
+          color: Colors.transparent,
+          elevation: 0,
+          child: child,
+        ),
+        itemBuilder: (_, idx) {
+          final id = order[idx];
+          final spi = serverState.servers[id];
+          return _buildIosItem(idx, id, spi, count: order.length);
+        },
+        itemCount: order.length,
+      );
+    }
     return ReorderableListView.builder(
       footer: const SizedBox(height: 77),
       onReorderItem: (oldIndex, newIndex) {
@@ -86,6 +115,45 @@ class _ServerOrderPageState extends ConsumerState<ServerOrderPage> {
       },
       itemCount: order.length,
       proxyDecorator: reorderProxyDecorator,
+    );
+  }
+
+  Widget _buildIosItem(int index, String id, Spi? spi, {required int count}) {
+    if (spi == null) return const SizedBox();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return ReorderableDelayedDragStartListener(
+      key: ValueKey('server_item_$id'),
+      index: index,
+      child: Container(
+        color: IosPalette.secondaryGroupedBackgroundByBrightness(isDark),
+        child: Column(
+          children: [
+            IosRow(
+              title: spi.name,
+              titleMaxLines: 1,
+              subtitle: spi.oldId,
+              leading: const IosSettingsIcon(CupertinoIcons.square_stack_3d_up),
+              trailing: ReorderableDragStartListener(
+                index: index,
+                child: const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: Icon(
+                    CupertinoIcons.line_horizontal_3,
+                    size: 18,
+                    color: Colors.grey,
+                  ),
+                ),
+              ),
+            ),
+            if (index < count - 1)
+              Container(
+                height: 0.5,
+                color: IosPalette.separatorByBrightness(isDark),
+                margin: const EdgeInsets.only(left: 16),
+              ),
+          ],
+        ),
+      ),
     );
   }
 

@@ -1,7 +1,10 @@
 import 'package:fl_lib/fl_lib.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:server_box/data/model/app/menu/server_func.dart';
 import 'package:server_box/data/res/store.dart';
+import 'package:server_box/view/platform/ios_list.dart';
+import 'package:server_box/view/platform/ios_palette.dart';
 
 class ServerFuncBtnsOrderPage extends StatefulWidget {
     /// Whether it is being shown inside the settings pane rather than pushed.
@@ -42,6 +45,33 @@ class _ServerDetailOrderPageState extends State<ServerFuncBtnsOrderPage> {
             .where((e) => !keys.contains(e))
             .toList();
         final allKeys = [...keys, ...disabled];
+        if (isIOS) {
+          return ReorderableListView.builder(
+            key: const PageStorageKey('srv_func_seq'),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+            buildDefaultDragHandles: false,
+            proxyDecorator: (child, _, _) => Material(
+              color: Colors.transparent,
+              elevation: 0,
+              child: child,
+            ),
+            itemCount: allKeys.length,
+            itemBuilder: (_, idx) =>
+                _buildIosListItem(allKeys[idx], idx, keys, allKeys.length),
+            onReorderItem: (o, n) {
+              if (o >= keys.length || n >= keys.length) {
+                Toast.show(libL10n.disabled);
+                return;
+              }
+              if (o == n) {
+                return;
+              }
+              final moved = keys.removeAt(o);
+              keys.insert(n, moved);
+              prop.set(keys);
+            },
+          );
+        }
         return ReorderableListView.builder(
           key: const PageStorageKey('srv_func_seq'),
           padding: const EdgeInsets.all(7),
@@ -62,6 +92,69 @@ class _ServerDetailOrderPageState extends State<ServerFuncBtnsOrderPage> {
         );
       },
     );
+  }
+
+  Widget _buildIosListItem(int key, int idx, List<int> keys, int count) {
+    final funcBtn = ServerFuncBtn.values[key];
+    final enabled = idx < keys.length;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return ReorderableDelayedDragStartListener(
+      key: ValueKey(key),
+      index: idx,
+      child: Container(
+        color: IosPalette.secondaryGroupedBackgroundByBrightness(isDark),
+        child: Column(
+          children: [
+            IosRow(
+              title: funcBtn.toStr,
+              titleMaxLines: 1,
+              titleColor: enabled ? null : Colors.grey,
+              leading: IosSettingsIcon(funcBtn.icon),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CupertinoSwitch(
+                    value: enabled,
+                    onChanged: (val) => _toggleFuncEnabled(keys, key, idx, val),
+                  ),
+                  const SizedBox(width: 4),
+                  ReorderableDragStartListener(
+                    index: idx,
+                    child: const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Icon(
+                        CupertinoIcons.line_horizontal_3,
+                        size: 18,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (idx < count - 1)
+              Container(
+                height: 0.5,
+                color: IosPalette.separatorByBrightness(isDark),
+                margin: const EdgeInsets.only(left: 16),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _toggleFuncEnabled(List<int> keys, int key, int idx, bool val) {
+    if (val) {
+      if (idx >= keys.length) {
+        keys.add(key);
+      } else {
+        keys.insert(idx.clamp(0, keys.length), key);
+      }
+    } else {
+      keys.remove(key);
+    }
+    prop.put(keys);
   }
 
   Widget _buildListItem(int key, int idx, List<int> keys) {

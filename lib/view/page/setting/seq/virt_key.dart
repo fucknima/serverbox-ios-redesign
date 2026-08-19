@@ -1,9 +1,12 @@
 import 'package:fl_lib/fl_lib.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:server_box/core/extension/context/locale.dart';
 import 'package:server_box/data/model/ssh/virtual_key.dart';
 import 'package:server_box/data/res/store.dart';
 import 'package:server_box/view/page/setting/seq/reorder_proxy_decorator.dart';
+import 'package:server_box/view/platform/ios_list.dart';
+import 'package:server_box/view/platform/ios_palette.dart';
 
 class SSHVirtKeySettingPage extends StatefulWidget {
     /// Whether it is being shown inside the settings pane rather than pushed.
@@ -76,6 +79,21 @@ class _SSHVirtKeySettingPageState extends State<SSHVirtKeySettingPage> {
   }
 
   Widget _buildBody() {
+    if (isIOS) {
+      return ReorderableListView.builder(
+        key: const PageStorageKey('virt_key'),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+        buildDefaultDragHandles: false,
+        proxyDecorator: (child, _, _) => Material(
+          color: Colors.transparent,
+          elevation: 0,
+          child: child,
+        ),
+        itemCount: _order.length,
+        itemBuilder: (_, idx) => _buildIosListItem(_order[idx], idx),
+        onReorderItem: _handleReorder,
+      );
+    }
     return ReorderableListView.builder(
       key: const PageStorageKey('virt_key'),
       padding: const EdgeInsets.all(7),
@@ -84,6 +102,60 @@ class _SSHVirtKeySettingPageState extends State<SSHVirtKeySettingPage> {
       proxyDecorator: reorderProxyDecorator,
       itemBuilder: (_, idx) => _buildListItem(_order[idx], idx),
       onReorderItem: _handleReorder,
+    );
+  }
+
+  Widget _buildIosListItem(int key, int idx) {
+    final item = VirtKey.values[key];
+    final isEnabled = _enabled.contains(key);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final title = item.icon == null
+        ? item.text
+        : '${item.text}  ${String.fromCharCode(item.icon!.codePoint)}';
+    return ReorderableDelayedDragStartListener(
+      key: ValueKey(key),
+      index: idx,
+      child: Container(
+        color: IosPalette.secondaryGroupedBackgroundByBrightness(isDark),
+        child: Column(
+          children: [
+            IosRow(
+              title: title,
+              titleMaxLines: 1,
+              titleColor: isEnabled ? null : Colors.grey,
+              subtitle: item.help,
+              subtitleMaxLines: 1,
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CupertinoSwitch(
+                    value: isEnabled,
+                    onChanged: (_) => _toggleEnabled(key),
+                  ),
+                  const SizedBox(width: 4),
+                  ReorderableDragStartListener(
+                    index: idx,
+                    child: const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Icon(
+                        CupertinoIcons.line_horizontal_3,
+                        size: 18,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (idx < _order.length - 1)
+              Container(
+                height: 0.5,
+                color: IosPalette.separatorByBrightness(isDark),
+                margin: const EdgeInsets.only(left: 16),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
