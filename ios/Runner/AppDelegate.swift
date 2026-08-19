@@ -9,6 +9,14 @@ import ActivityKit
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
+        NSSetUncaughtExceptionHandler { exception in
+            let reason = exception.reason ?? "nil"
+            let stack = exception.callStackSymbols.joined(separator: "\n")
+            let payload = "REASON:\n\(reason)\n\nSTACK:\n\(stack)\n"
+            let path = NSTemporaryDirectory() + "uncaught_exception.txt"
+            try? payload.write(toFile: path, atomically: true, encoding: .utf8)
+            NSLog("UNCAUGHT EXCEPTION: %@", payload)
+        }
         return super.application(application, didFinishLaunchingWithOptions: launchOptions)
     }
 
