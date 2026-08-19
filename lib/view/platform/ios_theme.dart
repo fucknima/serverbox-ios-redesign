@@ -14,6 +14,7 @@ extension IosThemeX on ThemeData {
     final grouped = IosPalette.groupedBackgroundByBrightness(isDark);
     final cell = IosPalette.secondaryGroupedBackgroundByBrightness(isDark);
     final accent = isDark ? IosPalette.blueDark : IosPalette.blueLight;
+    final container = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE9E9EB);
 
     return copyWith(
       // iOS has no ink ripples: touch feedback is a momentary highlight at
@@ -26,11 +27,25 @@ extension IosThemeX on ThemeData {
       scaffoldBackgroundColor: grouped,
       canvasColor: grouped,
       cardColor: cell,
+      // The M3 surface containers are derived from the seed, which is a dark
+      // maroon by default — over maroon-grey surface tints read pink. Pin
+      // them to the neutral system grays for iOS.
       colorScheme: scheme.copyWith(
         primary: accent,
         onPrimary: Colors.white,
         secondary: accent,
         surface: cell,
+        surfaceContainerLowest: isDark
+            ? const Color(0xFF1C1C1E)
+            : const Color(0xFFF9F9FA),
+        surfaceContainerLow: container,
+        surfaceContainer: isDark ? const Color(0xFF39393D) : const Color(0xFFE3E3E6),
+        surfaceContainerHigh: isDark
+            ? const Color(0xFF48484A)
+            : const Color(0xFFD8D8DC),
+        surfaceContainerHighest: isDark
+            ? const Color(0xFF56565A)
+            : const Color(0xFFCECED2),
         onSurfaceVariant: IosPalette.secondaryLabelByBrightness(isDark),
         outlineVariant: IosPalette.separatorByBrightness(isDark),
       ),

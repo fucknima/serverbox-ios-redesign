@@ -160,10 +160,33 @@ final class _BackupPageState extends ConsumerState<BackupPage>
           ...children.map(
             (e) => Padding(
               padding: const EdgeInsets.only(left: 16),
-              child: e,
+              child: _iosifyChild(e),
             ),
           ),
       ],
+    );
+  }
+
+  /// Re-render an expanded setting row with the iOS row so the expanded
+  /// content does not regress to Material ListTile.
+  Widget _iosifyChild(Widget child) {
+    if (child is! ListTile) return child;
+    final title = child.title is Text ? (child.title as Text).data : null;
+    final subtitle =
+        child.subtitle is Text ? (child.subtitle as Text).data : null;
+    final leading = child.leading is Icon
+        ? IosSettingsIcon((child.leading as Icon).icon ?? CupertinoIcons.circle)
+        : null;
+    return IosRow(
+      title: title ?? '',
+      titleMaxLines: 1,
+      subtitle: subtitle,
+      subtitleMaxLines: 2,
+      leading: leading,
+      trailing: child.trailing,
+      chevron: child.onTap != null &&
+          (child.trailing == null || child.trailing is Icon),
+      onTap: child.onTap,
     );
   }
 

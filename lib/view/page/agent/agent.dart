@@ -50,6 +50,8 @@ class _AgentPageState extends ConsumerState<AgentPage>
         builder: (_, split) => AgentConversationView(
           compact: !split,
           headerTrailing: const _FloatToggle(),
+          // The tab bar owns the bottom inset on the home tab.
+          handleBottomSafeArea: false,
         ),
       ),
     );

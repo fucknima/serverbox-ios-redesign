@@ -225,6 +225,10 @@ class AgentConversationView extends ConsumerStatefulWidget {
     required this.compact,
     this.showHeader = true,
     this.headerTrailing,
+    // The home tab's tab bar already owns the bottom inset; the floating
+    // shell must handle its own. Defaults to true so pushed users (shell)
+    // keep the safe area.
+    this.handleBottomSafeArea = true,
   });
 
   /// Too narrow for the conversation list to sit beside it, so the header
@@ -234,6 +238,10 @@ class AgentConversationView extends ConsumerStatefulWidget {
   /// False where the container draws its own bar — the floating shell, whose
   /// bar has to be the thing you drag it by.
   final bool showHeader;
+
+  /// Whether this view should add the bottom safe area itself (the floating
+  /// shell); the home tab passes false because its tab bar owns it.
+  final bool handleBottomSafeArea;
 
   /// Goes after the conversation's own buttons. The tab puts the control that
   /// sends this conversation floating there; the shell, having no header,
@@ -548,29 +556,76 @@ class _AgentConversationViewState extends ConsumerState<AgentConversationView> {
             ),
           ),
           const SizedBox(height: 18),
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _toolChip(theme, Icons.terminal, context.l10n.agentToolShell),
-              _toolChip(
-                theme,
-                Icons.description_outlined,
-                context.l10n.agentToolReadFile,
-              ),
-              _toolChip(
-                theme,
-                Icons.edit_document,
-                context.l10n.agentToolWriteFile,
-              ),
-              _toolChip(
-                theme,
-                Icons.dns_outlined,
-                context.l10n.agentToolServerBox,
-              ),
-            ],
-          ),
+          if (isIOS)
+            // A fixed 2x2 grid: the four quick actions as equal tiles, no
+            // ragged wrap.
+            Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _toolChip(
+                        theme,
+                        Icons.terminal,
+                        context.l10n.agentToolShell,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _toolChip(
+                        theme,
+                        Icons.description_outlined,
+                        context.l10n.agentToolReadFile,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _toolChip(
+                        theme,
+                        Icons.edit_document,
+                        context.l10n.agentToolWriteFile,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _toolChip(
+                        theme,
+                        Icons.dns_outlined,
+                        context.l10n.agentToolServerBox,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            )
+          else
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _toolChip(theme, Icons.terminal, context.l10n.agentToolShell),
+                _toolChip(
+                  theme,
+                  Icons.description_outlined,
+                  context.l10n.agentToolReadFile,
+                ),
+                _toolChip(
+                  theme,
+                  Icons.edit_document,
+                  context.l10n.agentToolWriteFile,
+                ),
+                _toolChip(
+                  theme,
+                  Icons.dns_outlined,
+                  context.l10n.agentToolServerBox,
+                ),
+              ],
+            ),
         ],
       ),
     );
@@ -578,19 +633,27 @@ class _AgentConversationViewState extends ConsumerState<AgentConversationView> {
 
   Widget _toolChip(ThemeData theme, IconData icon, String label) {
     if (isIOS) {
-      // A light filled block, no border: the iOS "system fill" look.
+      // A neutral iOS system-fill block (not the Material surface container,
+      // which reads pink in light mode), full width of its grid cell.
+      final fill = CupertinoColors.secondarySystemFill.resolveFrom(context);
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerLow,
+          color: fill,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 16),
             const SizedBox(width: 6),
-            Text(label, style: const TextStyle(fontSize: 13)),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 13),
+              ),
+            ),
           ],
         ),
       );
@@ -1094,6 +1157,9 @@ class _AgentConversationViewState extends ConsumerState<AgentConversationView> {
     final error = session.error;
     return SafeArea(
       top: false,
+      // The floating shell owns its bottom inset; on the home tab the tab bar
+      // does, and adding it here double-pads the composer.
+      bottom: widget.handleBottomSafeArea,
       child: Padding(
         // Less below than beside: what sits at the bottom is one line of grey
         // small print, and a gap sized for the input box above it left the
@@ -1146,9 +1212,14 @@ class _AgentConversationViewState extends ConsumerState<AgentConversationView> {
               Stores.setting.askAiSendOnEnter.listenable().listenVal((
                 sendOnEnter,
               ) {
+                final iosFill = isIOS
+                    ? CupertinoColors.secondarySystemFill.resolveFrom(context)
+                    : null;
                 return Container(
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerLow,
+                    // Neutral system fill on iOS, not the seed-derived
+                    // surface container (which reads pink in light mode).
+                    color: iosFill ?? theme.colorScheme.surfaceContainerLow,
                     borderRadius: BorderRadius.circular(isIOS ? 12 : 18),
                     // The same line as the rule directly above it. iOS draws
                     // the input as a plain filled box.
