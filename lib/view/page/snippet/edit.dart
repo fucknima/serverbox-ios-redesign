@@ -1,4 +1,5 @@
 import 'package:fl_lib/fl_lib.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +9,9 @@ import 'package:server_box/data/model/server/snippet.dart';
 import 'package:server_box/data/provider/server/all.dart';
 import 'package:server_box/data/provider/snippet.dart';
 import 'package:server_box/view/page/ssh/snippet_run.dart';
+import 'package:server_box/view/platform/ios_list.dart';
+import 'package:server_box/view/platform/ios_nav.dart';
+import 'package:server_box/view/platform/ios_palette.dart';
 import 'package:server_box/view/widget/page_columns.dart';
 
 final class SnippetEditPageArgs {
@@ -66,6 +70,42 @@ class _SnippetEditPageState extends ConsumerState<SnippetEditPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (isIOS) {
+      final snippet = widget.args?.snippet;
+      return IosNavBar(
+        title: libL10n.edit,
+        actions: [
+          Tooltip(
+            message: libL10n.save,
+            child: CupertinoButton(
+              padding: const EdgeInsets.all(8),
+              onPressed: _save,
+              child: const Icon(CupertinoIcons.checkmark, size: 22),
+            ),
+          ),
+          if (snippet != null)
+            Tooltip(
+              message: libL10n.delete,
+              child: CupertinoButton(
+                padding: const EdgeInsets.all(8),
+                onPressed: () => _confirmDelete(snippet),
+                child: const Icon(CupertinoIcons.trash, size: 21),
+              ),
+            ),
+        ],
+        body: _buildIosBody(),
+        bottom: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            child: CupertinoButton.filled(
+              onPressed: _run,
+              child: Text(libL10n.run),
+            ),
+          ),
+        ),
+      );
+    }
     return Scaffold(
       appBar: CustomAppBar(
         title: Text(libL10n.edit),
@@ -73,6 +113,156 @@ class _SnippetEditPageState extends ConsumerState<SnippetEditPage> {
       ),
       body: _buildBody(),
       floatingActionButton: _buildFAB(),
+    );
+  }
+
+  Future<void> _confirmDelete(Snippet snippet) async {
+    final confirmed = await context.showRoundDialog<bool>(
+      title: libL10n.attention,
+      child: Text(
+        libL10n.askContinue('${libL10n.delete} ${libL10n.snippet}(${snippet.name})'),
+      ),
+      actions: Btn.ok(red: true).toList,
+    );
+    if (confirmed != true || !context.mounted) return;
+    ref.read(snippetProvider.notifier).del(snippet);
+    _leave();
+  }
+
+  Widget _buildIosBody() {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
+      children: [
+        IosSection(
+          children: [
+            _iosField(
+              controller: _nameController,
+              label: libL10n.name,
+              onSubmitted: (_) =>
+                  FocusScope.of(context).requestFocus(_scriptNode),
+            ),
+            _iosField(
+              controller: _noteController,
+              label: libL10n.note,
+              minLines: 3,
+              maxLines: 3,
+            ),
+            _iosField(
+              controller: _scriptController,
+              label: libL10n.snippet,
+              minLines: 3,
+              maxLines: 10,
+              node: _scriptNode,
+            ),
+          ],
+        ),
+        IosSection(
+          children: [
+            Consumer(
+              builder: (_, ref, _) {
+                final tags = ref.watch(snippetProvider.select((p) => p.tags));
+                return IosRow(
+                  title: libL10n.tag,
+                  subtitle: _tags.value.isEmpty ? null : _tags.value.join(', '),
+                  leading: const IosSettingsIcon(CupertinoIcons.tag),
+                  chevron: true,
+                  onTap: () => _showIosTagPicker(tags),
+                );
+              },
+            ),
+            _buildIosAutoRunOn(),
+          ],
+        ),
+        _buildTip(),
+      ],
+    );
+  }
+
+  Widget _iosField({
+    required TextEditingController controller,
+    required String label,
+    FocusNode? node,
+    int minLines = 1,
+    int? maxLines,
+    void Function(String)? onSubmitted,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 7, 16, 7),
+      child: CupertinoTextField(
+        controller: controller,
+        focusNode: node,
+        minLines: minLines,
+        maxLines: maxLines,
+        autocorrect: false,
+        onSubmitted: onSubmitted,
+        placeholder: label,
+        placeholderStyle: TextStyle(
+          color: IosPalette.secondaryLabelByBrightness(isDark),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        decoration: null,
+      ),
+    );
+  }
+
+  Future<void> _showIosTagPicker(Set<String> allTags) async {
+    final all = {...allTags, ..._tags.value}.toList();
+    final res = await context.showPickDialog(
+      items: all,
+      initial: _tags.value.toList(),
+      clearable: true,
+      actions: [
+        TextButton(
+          onPressed: () {
+            context.popDialog();
+            _tags.value = {};
+          },
+          child: Text(libL10n.clear),
+        ),
+        TextButton(
+          onPressed: () => context.popDialog(true),
+          child: Text(libL10n.ok),
+        ),
+      ],
+    );
+    if (res == null) return;
+    _tags.value = res.cast<String>().toSet();
+  }
+
+  Future<void> _showIosAutoRunPicker() async {
+    final validServerIds = _autoRunOn.value
+        .where((e) => ref.read(serversProvider).serverOrder.contains(e))
+        .toList();
+    final serverIds = await context.showPickDialog(
+      title: l10n.autoRun,
+      items: ref.read(serversProvider).serverOrder,
+      display: (e) => ref.read(serversProvider).servers[e]?.name ?? e,
+      initial: validServerIds,
+      clearable: true,
+    );
+    if (serverIds != null) {
+      _autoRunOn.value = serverIds.cast<String>().toList();
+    }
+  }
+
+  Widget _buildIosAutoRunOn() {
+    return ValBuilder(
+      listenable: _autoRunOn,
+      builder: (vals) {
+        final subtitle = vals.isEmpty
+            ? null
+            : vals
+                  .map((e) => ref.read(serversProvider).servers[e]?.name ?? e)
+                  .join(', ');
+        return IosRow(
+          title: l10n.autoRun,
+          subtitle: subtitle,
+          leading: const IosSettingsIcon(CupertinoIcons.play_circle),
+          chevron: true,
+          onTap: _showIosAutoRunPicker,
+        );
+      },
     );
   }
 

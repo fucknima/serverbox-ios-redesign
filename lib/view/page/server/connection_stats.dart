@@ -1,6 +1,7 @@
 // ignore_for_file: invalid_use_of_protected_member
 
 import 'package:fl_lib/fl_lib.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:server_box/core/extension/context/locale.dart';
@@ -33,29 +34,78 @@ class _ConnectionStatsPageState extends State<ConnectionStatsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: CustomAppBar(
+      // iPhone keeps only refresh in the bar; clear-all and compact move
+      // behind an ellipsis menu so the title is never squeezed by three
+      // actions.
+      appBar: isIOS
+          ? CustomAppBar(
+              title: Text(l10n.connectionStats),
+              actions: [
+                IconButton(
+                  onPressed: _loadStats,
+                  icon: const Icon(CupertinoIcons.refresh),
+                  tooltip: libL10n.refresh,
+                ),
+                IconButton(
+                  onPressed: _showIosMore,
+                  icon: const Icon(CupertinoIcons.ellipsis),
+                  tooltip: libL10n.more,
+                ),
+              ],
+            )
+          : CustomAppBar(
+              title: Text(l10n.connectionStats),
+              actions: [
+                IconButton(
+                  onPressed: _loadStats,
+                  icon: const Icon(Icons.refresh),
+                  tooltip: libL10n.refresh,
+                ),
+                IconButton(
+                  onPressed: _showClearAllDialog,
+                  icon: const Icon(Icons.clear_all, color: Colors.red),
+                  tooltip: libL10n.clear,
+                ),
+                IconButton(
+                  onPressed: _isCompacting ? null : _showCompactDialog,
+                  icon: _isCompacting
+                      ? SizedLoading.small
+                      : const Icon(Icons.compress),
+                  tooltip: l10n.compactDatabase,
+                ),
+              ],
+            ),
+      body: _buildBody(),
+    );
+  }
+
+  void _showIosMore() {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
         title: Text(l10n.connectionStats),
         actions: [
-          IconButton(
-            onPressed: _loadStats,
-            icon: const Icon(Icons.refresh),
-            tooltip: libL10n.refresh,
+          CupertinoActionSheetAction(
+            isDestructiveAction: true,
+            onPressed: () {
+              Navigator.pop(context);
+              _showClearAllDialog();
+            },
+            child: Text(libL10n.clear),
           ),
-          IconButton(
-            onPressed: _showClearAllDialog,
-            icon: const Icon(Icons.clear_all, color: Colors.red),
-            tooltip: libL10n.clear,
-          ),
-          IconButton(
-            onPressed: _isCompacting ? null : _showCompactDialog,
-            icon: _isCompacting
-                ? SizedLoading.small
-                : const Icon(Icons.compress),
-            tooltip: l10n.compactDatabase,
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _showCompactDialog();
+            },
+            child: Text(l10n.compactDatabase),
           ),
         ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(context),
+          child: Text(libL10n.cancel),
+        ),
       ),
-      body: _buildBody(),
     );
   }
 }

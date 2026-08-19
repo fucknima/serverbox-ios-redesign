@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:computer/computer.dart';
 import 'package:fl_lib/fl_lib.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +11,9 @@ import 'package:server_box/core/utils/server.dart';
 import 'package:server_box/data/model/server/private_key_info.dart';
 import 'package:server_box/data/provider/private_key.dart';
 import 'package:server_box/data/res/misc.dart';
+import 'package:server_box/view/platform/ios_list.dart';
+import 'package:server_box/view/platform/ios_nav.dart';
+import 'package:server_box/view/platform/ios_palette.dart';
 import 'package:server_box/view/widget/page_columns.dart';
 
 const _format = 'text/plain';
@@ -89,11 +93,142 @@ class _PrivateKeyEditPageState extends ConsumerState<PrivateKeyEditPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (isIOS) {
+      return IosNavBar(
+        title: libL10n.edit,
+        actions: [
+          Tooltip(
+            message: libL10n.save,
+            child: CupertinoButton(
+              padding: const EdgeInsets.all(8),
+              onPressed: _onTapSave,
+              child: const Icon(CupertinoIcons.checkmark, size: 22),
+            ),
+          ),
+        ],
+        body: _buildIosBody(),
+      );
+    }
     return Scaffold(
       appBar: _buildAppBar(),
       body: _buildBody(),
       floatingActionButton: _buildFAB(),
     );
+  }
+
+  Widget _buildIosBody() {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
+      children: [
+        IosSection(
+          children: [
+            _iosField(
+              controller: _nameController,
+              label: libL10n.name,
+              node: _nameNode,
+              onSubmitted: (_) => _focusScope.requestFocus(_keyNode),
+            ),
+            _iosField(
+              controller: _keyController,
+              label: l10n.privateKey,
+              minLines: 3,
+              maxLines: 10,
+              node: _keyNode,
+              onSubmitted: (_) => _focusScope.requestFocus(_pwdNode),
+            ),
+            IosRow(
+              title: libL10n.file,
+              leading: const IosSettingsIcon(CupertinoIcons.folder_open),
+              chevron: true,
+              onTap: () async {
+                final path = await Pfs.pickFilePath();
+                if (path == null) return;
+                final file = File(path);
+                if (!file.existsSync()) {
+                  Toast.show(libL10n.notExistFmt(path));
+                  return;
+                }
+                final size = (await file.stat()).size;
+                if (size > Miscs.privateKeyMaxSize) {
+                  Toast.show(
+                    l10n.fileTooLarge(
+                      path,
+                      size.bytes2Str,
+                      Miscs.privateKeyMaxSize.bytes2Str,
+                    ),
+                  );
+                  return;
+                }
+                final content = await file.readAsString();
+                _keyController.text = _standardizeLineSeparators(content.trim());
+              },
+            ),
+            _iosField(
+              controller: _pwdController,
+              label: libL10n.pwd,
+              obscure: true,
+              node: _pwdNode,
+              onSubmitted: (_) => _onTapSave(),
+            ),
+          ],
+        ),
+        if (pki != null) ...[
+          const SizedBox(height: 20),
+          IosSection(
+            children: [
+              IosRow(
+                title: '${libL10n.delete} ${l10n.privateKey}',
+                titleColor: IosPalette.redLight,
+                onTap: _confirmDelete,
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _iosField({
+    required TextEditingController controller,
+    required String label,
+    FocusNode? node,
+    bool obscure = false,
+    int minLines = 1,
+    int? maxLines,
+    void Function(String)? onSubmitted,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 7, 16, 7),
+      child: CupertinoTextField(
+        controller: controller,
+        focusNode: node,
+        obscureText: obscure,
+        minLines: minLines,
+        maxLines: maxLines,
+        autocorrect: false,
+        onSubmitted: onSubmitted,
+        placeholder: label,
+        placeholderStyle: TextStyle(
+          color: IosPalette.secondaryLabelByBrightness(isDark),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        decoration: null,
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete() async {
+    final confirmed = await context.showRoundDialog<bool>(
+      title: libL10n.attention,
+      child: Text(
+        libL10n.askContinue('${libL10n.delete} ${l10n.privateKey}(${pki!.id})'),
+      ),
+      actions: Btn.ok(red: true).toList,
+    );
+    if (confirmed != true || !context.mounted) return;
+    _notifier.delete(pki!);
+    context.pop();
   }
 
   CustomAppBar _buildAppBar() {
@@ -102,22 +237,7 @@ class _PrivateKeyEditPageState extends ConsumerState<PrivateKeyEditPage> {
         ? [
             IconButton(
               tooltip: libL10n.delete,
-              onPressed: () async {
-                // The dialog answers; the page acts on the answer. See the
-                // snippet editor for why not from inside the button.
-                final confirmed = await context.showRoundDialog<bool>(
-                  title: libL10n.attention,
-                  child: Text(
-                    libL10n.askContinue(
-                      '${libL10n.delete} ${l10n.privateKey}(${pki.id})',
-                    ),
-                  ),
-                  actions: Btn.ok(red: true).toList,
-                );
-                if (confirmed != true || !context.mounted) return;
-                _notifier.delete(pki);
-                context.pop();
-              },
+              onPressed: _confirmDelete,
               icon: const Icon(Icons.delete),
             ),
           ]

@@ -1,6 +1,7 @@
 // ignore_for_file: invalid_use_of_protected_member
 
 import 'package:fl_lib/fl_lib.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:server_box/core/extension/context/locale.dart';
@@ -9,6 +10,10 @@ import 'package:server_box/data/model/app/scripts/shell_func.dart';
 import 'package:server_box/data/model/server/server_private_info.dart';
 import 'package:server_box/data/provider/server/single.dart';
 import 'package:server_box/src/rust/api/script.dart' as ffi;
+import 'package:server_box/view/platform/ios_controls.dart';
+import 'package:server_box/view/platform/ios_list.dart';
+import 'package:server_box/view/platform/ios_nav.dart';
+import 'package:server_box/view/platform/ios_palette.dart';
 
 /// One custom command as the editor holds it, before it becomes a file.
 typedef _Cmd = ({String name, String cmd});
@@ -59,35 +64,137 @@ final class _CustomCmdsPageState extends ConsumerState<CustomCmdsPage> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _confirmDiscard();
       },
-      child: Scaffold(
-        appBar: CustomAppBar(
-          centerTitle: true,
-          title: TwoLineText(up: l10n.customCmd, down: _spi.name),
-          actions: [
-            if (_cmds != null)
-              if (_saving)
-                const Padding(
-                  padding: EdgeInsets.all(13),
-                  child: SizedBox.square(
-                    dimension: 17,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+      child: isIOS
+          ? IosNavBar(
+              title: l10n.customCmd,
+              actions: [
+                if (_cmds != null && !_saving)
+                  Tooltip(
+                    message: libL10n.save,
+                    child: CupertinoButton(
+                      padding: const EdgeInsets.all(8),
+                      onPressed: _save,
+                      child: const Icon(CupertinoIcons.checkmark, size: 22),
+                    ),
                   ),
-                )
-              else
-                Btn.icon(
-                  text: libL10n.save,
-                  icon: const Icon(Icons.save),
-                  onTap: _save,
-                ),
+                if (_cmds != null && !_saving)
+                  Tooltip(
+                    message: libL10n.add,
+                    child: CupertinoButton(
+                      padding: const EdgeInsets.all(8),
+                      onPressed: _onAdd,
+                      child: const Icon(CupertinoIcons.add, size: 22),
+                    ),
+                  ),
+                if (_saving) IosControls.loadingBox(dimension: 20, radius: 9),
+              ],
+              body: _buildIosBody(),
+            )
+          : Scaffold(
+              appBar: CustomAppBar(
+                centerTitle: true,
+                title: TwoLineText(up: l10n.customCmd, down: _spi.name),
+                actions: [
+                  if (_cmds != null)
+                    if (_saving)
+                      const Padding(
+                        padding: EdgeInsets.all(13),
+                        child: SizedBox.square(
+                          dimension: 17,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    else
+                      Btn.icon(
+                        text: libL10n.save,
+                        icon: const Icon(Icons.save),
+                        onTap: _save,
+                      ),
+                ],
+              ),
+              floatingActionButton: _cmds == null
+                  ? null
+                  : FloatingActionButton(
+                      onPressed: _onAdd,
+                      child: const Icon(Icons.add),
+                    ),
+              body: _buildBody(),
+            ),
+    );
+  }
+
+  Widget _buildIosBody() {
+    final err = _err;
+    if (err != null) return _buildErr(err);
+    final cmds = _cmds;
+    if (cmds == null) return Center(child: IosControls.loading(radius: 16));
+    if (cmds.isEmpty) {
+      return IosControls.empty(
+        context,
+        icon: CupertinoIcons.chevron_left_slash_chevron_right,
+        title: libL10n.empty,
+        actionLabel: libL10n.add,
+        onAction: _onAdd,
+      );
+    }
+    return ReorderableListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+      buildDefaultDragHandles: false,
+      itemCount: cmds.length,
+      proxyDecorator: (child, _, _) => Material(
+        color: Colors.transparent,
+        elevation: 0,
+        child: child,
+      ),
+      itemBuilder: (_, idx) => _buildIosItem(cmds[idx], idx),
+    );
+  }
+
+  Widget _buildIosItem(_Cmd cmd, int idx) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return ReorderableDelayedDragStartListener(
+      key: ValueKey('${idx}_${cmd.name}'),
+      index: idx,
+      child: Container(
+        color: IosPalette.secondaryGroupedBackgroundByBrightness(isDark),
+        child: Column(
+          children: [
+            IosRow(
+              title: cmd.name,
+              titleMaxLines: 1,
+              subtitle: cmd.cmd,
+              subtitleMaxLines: 2,
+              leading: const IosSettingsIcon(CupertinoIcons.chevron_left_slash_chevron_right),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(CupertinoIcons.trash, size: 18),
+                    onPressed: () => _onDelete(idx),
+                  ),
+                  ReorderableDragStartListener(
+                    index: idx,
+                    child: const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Icon(
+                        CupertinoIcons.line_horizontal_3,
+                        size: 18,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              onTap: () => _onEdit(idx),
+            ),
+            if (idx < _cmds!.length - 1)
+              Container(
+                height: 0.5,
+                color: IosPalette.separatorByBrightness(isDark),
+                margin: const EdgeInsets.only(left: 16),
+              ),
           ],
         ),
-        floatingActionButton: _cmds == null
-            ? null
-            : FloatingActionButton(
-                onPressed: _onAdd,
-                child: const Icon(Icons.add),
-              ),
-        body: _buildBody(),
       ),
     );
   }
