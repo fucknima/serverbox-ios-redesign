@@ -1,4 +1,5 @@
 import 'package:fl_lib/fl_lib.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:server_box/data/model/file/file_ref.dart';
@@ -102,6 +103,29 @@ Future<_Place?> _pickPlace(BuildContext context, WidgetRef ref) async {
       if (state.servers[id] case final spi? when canTransferTo(ref, spi)) spi,
   ];
 
+  if (isIOS) {
+    return showCupertinoModalPopup<_Place>(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
+        title: Text(libL10n.select),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.pop(context, const _Device()),
+            child: Text(libL10n.device),
+          ),
+          for (final spi in servers)
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.pop(context, _Server(spi)),
+              child: Text(spi.name),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(context),
+          child: Text(libL10n.cancel),
+        ),
+      ),
+    );
+  }
   return context.showRoundDialog<_Place>(
     title: libL10n.select,
     child: SingleChildScrollView(

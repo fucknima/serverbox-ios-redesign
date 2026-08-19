@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fl_lib/fl_lib.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:server_box/core/extension/context/locale.dart';
@@ -10,6 +11,7 @@ import 'package:server_box/data/model/app/error.dart';
 import 'package:server_box/data/model/server/pve.dart';
 import 'package:server_box/data/model/server/server_private_info.dart';
 import 'package:server_box/data/provider/pve.dart';
+import 'package:server_box/view/platform/ios_nav.dart';
 import 'package:server_box/view/widget/percent_circle.dart';
 
 final class PvePageArgs {
@@ -79,6 +81,32 @@ final class _PvePageState extends ConsumerState<PvePage> {
       }
     }
 
+    final refreshBtn = pveState.error == null
+        ? null
+        : () {
+            _lastHandledTfaMessage = null;
+            _notifier.reconnect();
+            _initRefreshTimer();
+          };
+    if (isIOS) {
+      return IosNavBar(
+        title: 'PVE',
+        actions: [
+          if (refreshBtn != null)
+            Tooltip(
+              message: libL10n.refresh,
+              child: CupertinoButton(
+                padding: const EdgeInsets.all(8),
+                onPressed: refreshBtn,
+                child: const Icon(CupertinoIcons.refresh, size: 21),
+              ),
+            ),
+        ],
+        body: pveState.error != null
+            ? _buildError(pveState.error!)
+            : _buildBody(pveState.data, pveState.loadingStep),
+      );
+    }
     return Scaffold(
       appBar: CustomAppBar(
         title: TwoLineText(up: 'PVE', down: widget.args.spi.name),

@@ -12,6 +12,9 @@ import 'package:server_box/data/model/file/transfer_status.dart';
 import 'package:server_box/data/provider/file_transfer.dart';
 import 'package:server_box/data/res/default.dart';
 import 'package:server_box/view/page/storage/local.dart';
+import 'package:server_box/view/platform/ios_list.dart';
+import 'package:server_box/view/platform/ios_nav.dart';
+import 'package:server_box/view/platform/ios_palette.dart';
 
 /// Every transfer, running and finished.
 ///
@@ -38,6 +41,9 @@ class TransferListPage extends ConsumerStatefulWidget {
 class _TransferListPageState extends ConsumerState<TransferListPage> {
   @override
   Widget build(BuildContext context) {
+    if (isIOS) {
+      return IosNavBar(title: libL10n.mission, body: const TransferListView());
+    }
     return Scaffold(
       appBar: CustomAppBar(title: Text(libL10n.mission, style: UIs.text18)),
       body: const TransferListView(),
@@ -86,7 +92,9 @@ class _TransferListViewState extends ConsumerState<TransferListView> {
       return Center(child: Text(libL10n.empty));
     }
     return ListView.builder(
-      padding: const EdgeInsets.all(11),
+      padding: isIOS
+          ? const EdgeInsets.fromLTRB(16, 10, 16, 20)
+          : const EdgeInsets.all(11),
       itemCount: transfers.length,
       itemBuilder: (context, index) => _buildItem(transfers[index]),
     );
@@ -179,6 +187,23 @@ class _TransferListViewState extends ConsumerState<TransferListView> {
     String? subtitle,
     Widget? trailing,
   }) {
+    if (isIOS) {
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      return Container(
+        color: IosPalette.secondaryGroupedBackgroundByBrightness(isDark),
+        child: IosRow(
+          title: status.fileName,
+          titleMaxLines: 1,
+          subtitle: subtitle,
+          subtitleMaxLines: 2,
+          leading: Text(
+            status.startedAt.hourMinute,
+            style: const TextStyle(fontSize: 13),
+          ),
+          trailing: trailing,
+        ),
+      );
+    }
     return CardX(
       child: ListTile(
         leading: Text(status.startedAt.hourMinute),

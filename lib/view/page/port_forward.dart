@@ -8,6 +8,8 @@ import 'package:server_box/data/model/server/port_forward.dart';
 import 'package:server_box/data/provider/port_forward_provider.dart';
 import 'package:server_box/data/res/store.dart';
 import 'package:server_box/view/platform/ios_list.dart';
+import 'package:server_box/view/platform/ios_nav.dart';
+import 'package:server_box/view/platform/ios_palette.dart';
 
 final class PortForwardPage extends ConsumerStatefulWidget {
   final SpiRequiredArgs args;
@@ -70,6 +72,22 @@ final class _PortForwardPageState extends ConsumerState<PortForwardPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (isIOS) {
+      return IosNavBar(
+        title: l10n.portForwardBetaTitle,
+        actions: [
+          Tooltip(
+            message: libL10n.add,
+            child: CupertinoButton(
+              padding: const EdgeInsets.all(8),
+              onPressed: _onAdd,
+              child: const Icon(CupertinoIcons.add, size: 22),
+            ),
+          ),
+        ],
+        body: _buildBody(),
+      );
+    }
     return Scaffold(
       appBar: CustomAppBar(
         centerTitle: true,
@@ -228,7 +246,8 @@ final class _PortForwardPageState extends ConsumerState<PortForwardPage> {
   }
 
   void _showConfigDialog(PortForwardConfig? existing) {
-    showDialog(
+    final show = isIOS ? showCupertinoDialog : showDialog;
+    show(
       context: context,
       builder: (ctx) => _PortForwardConfigDialog(
         existing: existing,
@@ -310,6 +329,50 @@ class _PortForwardConfigDialogState extends State<_PortForwardConfigDialog> {
 
   @override
   Widget build(BuildContext context) {
+    if (isIOS) {
+      return CupertinoAlertDialog(
+        title: Text(widget.existing == null ? libL10n.add : libL10n.edit),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _iosField(nameController, libL10n.name),
+              const SizedBox(height: 10),
+              _buildIosTypeSelector(),
+              const SizedBox(height: 10),
+              _iosField(localHostController, _localHostHint),
+              const SizedBox(height: 8),
+              _iosField(
+                localPortController,
+                _localPortHint,
+                type: TextInputType.number,
+              ),
+              if (_selectedType != PortForwardType.dynamic) ...[
+                const SizedBox(height: 8),
+                _iosField(remoteHostController, _remoteHostHint),
+                const SizedBox(height: 8),
+                _iosField(
+                  remotePortController,
+                  _remotePortHint,
+                  type: TextInputType.number,
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(context),
+            child: Text(libL10n.cancel),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: _onSave,
+            child: Text(libL10n.ok),
+          ),
+        ],
+      );
+    }
     return AlertDialog(
       title: Text(widget.existing == null ? libL10n.add : libL10n.edit),
       content: SingleChildScrollView(
@@ -366,6 +429,48 @@ class _PortForwardConfigDialogState extends State<_PortForwardConfigDialog> {
         Btn.cancel(),
         Btn.ok(onTap: _onSave),
       ],
+    );
+  }
+
+  Widget _iosField(
+    TextEditingController controller,
+    String hint, {
+    TextInputType? type,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return CupertinoTextField(
+      controller: controller,
+      keyboardType: type,
+      autocorrect: false,
+      placeholder: hint,
+      placeholderStyle: TextStyle(
+        color: IosPalette.secondaryLabelByBrightness(isDark),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 9),
+      decoration: null,
+    );
+  }
+
+  Widget _buildIosTypeSelector() {
+    return CupertinoSlidingSegmentedControl<PortForwardType>(
+      groupValue: _selectedType,
+      onValueChanged: (value) {
+        if (value != null) setState(() => _selectedType = value);
+      },
+      children: {
+        PortForwardType.local: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          child: Text(_localTypeLabel, style: const TextStyle(fontSize: 13)),
+        ),
+        PortForwardType.remote: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          child: Text(_remoteTypeLabel, style: const TextStyle(fontSize: 13)),
+        ),
+        PortForwardType.dynamic: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          child: Text('SOCKS5', style: const TextStyle(fontSize: 13)),
+        ),
+      },
     );
   }
 
