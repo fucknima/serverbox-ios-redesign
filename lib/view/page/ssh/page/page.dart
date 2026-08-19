@@ -125,6 +125,10 @@ class SSHPageState extends ConsumerState<SSHPage>
         AfterLayoutMixin,
         TickerProviderStateMixin,
         WidgetsBindingObserver {
+  /// Re-entry guard for the file virtual key: opening the file browser runs
+  /// a PWD probe then a route push; rapid taps must not start several of
+  /// both.
+  bool _isOpeningFileBrowser = false;
   /// The tmux session this page attached to, kept for the reconnect that
   /// rebuilds the launch plan and reads it again.
   ///
@@ -433,9 +437,13 @@ class SSHPageState extends ConsumerState<SSHPage>
           autofocus: false,
           keyboardAppearance: _isDark ? Brightness.dark : Brightness.light,
           showToolbar: true,
+          // The paragraph (term grid) sits below whatever chrome owns the
+          // top safe area. In a tab the session header already did, so the
+          // y offset is zero; pushed (`notFromTab`) pages still account for
+          // the status bar height the old CustomAppBar era reserved.
           viewOffset: Offset(
             2 * _horizonPadding,
-            CustomAppBar.sysStatusBarHeight,
+            widget.args.notFromTab ? CustomAppBar.sysStatusBarHeight : 0,
           ),
           hideScrollBar: false,
           focusNode: widget.args.focusNode,

@@ -79,70 +79,7 @@ extension _VirtKey on SSHPageState {
         snippet.runInTerm(_terminal, snippetSpi);
         break;
       case VirtualKeyFunc.file:
-        // Before anything is typed. SFTP is a file browser on a server and
-        // this device already has one, so on a local shell there is nothing to
-        // open — and asking afterwards meant echoing a probe command into the
-        // user's session, polling for three seconds, and then giving up in
-        // silence.
-        final fileSpi = widget.args.spi;
-        if (fileSpi == null) return;
-        // get $PWD from SSH session with unique markers
-        const marker = 'ServerBoxOutput';
-        const markerEnd = 'ServerBoxEnd';
-        const pwdCommand = 'echo "$marker:\$PWD:$markerEnd"';
-        _terminal.textInput(pwdCommand);
-        _terminal.keyInput(TerminalKey.enter);
-
-        // Wait for output with timeout
-        String? initPath;
-        await Future.delayed(const Duration(milliseconds: 700));
-        final startTime = DateTime.now();
-        final timeout = const Duration(seconds: 3);
-
-        while (initPath == null) {
-          // Check if we've exceeded timeout
-          if (DateTime.now().difference(startTime) > timeout) {
-            contextSafe?.showRoundDialog(
-              title: libL10n.error,
-              child: Text(libL10n.empty),
-            );
-            return;
-          }
-
-          // Search for marked output in terminal buffer
-          final cmds = _terminal.buffer.lines.toList();
-          for (final line in cmds.reversed) {
-            final lineStr = line.toString();
-            if (lineStr.contains(marker) && lineStr.contains(markerEnd)) {
-              // Extract path between markers
-              final start =
-                  lineStr.indexOf(marker) + marker.length + 1; // +1 for ':'
-              final end = lineStr.indexOf(markerEnd) - 1; // -1 for ':'
-              if (start < end) {
-                initPath = lineStr.substring(start, end);
-                if (initPath.isEmpty || initPath == '\$PWD') {
-                  initPath = null;
-                } else {
-                  break;
-                }
-              }
-            }
-          }
-
-          // Short wait before checking again
-          await Future.delayed(const Duration(milliseconds: 100));
-        }
-
-        if (!initPath.startsWith('/')) {
-          context.showRoundDialog(
-            title: libL10n.error,
-            child: Text('${l10n.remotePath}: $initPath'),
-          );
-          return;
-        }
-
-        final args = SftpPageArgs(spi: fileSpi, initPath: initPath);
-        SftpPage.route.go(context, args);
+        await _openServerFiles();
         break;
       case VirtualKeyFunc.sudoPassword:
         await _insertSudoPassword();
@@ -150,6 +87,103 @@ extension _VirtKey on SSHPageState {
       case VirtualKeyFunc.tmuxSwitch:
         await _showTmuxSwitcher();
         break;
+    }
+  }
+
+  /// Opens the SFTP browser at the terminal's current directory.
+  ///
+  /// Runs the PWD probe, then — on iOS, where a route push while the text
+  /// input/keyboard is still live has been seen to abort the app — releases
+  /// terminal focus and waits for the keyboard to settle before pushing.
+  Future<void> _openServerFiles() async {
+    if (_isOpeningFileBrowser) return;
+    final fileSpi = widget.args.spi;
+    if (fileSpi == null) return;
+    _isOpeningFileBrowser = true;
+    try {
+      // get $PWD from SSH session with unique markers
+      const marker = 'ServerBoxOutput';
+      const markerEnd = 'ServerBoxEnd';
+      const pwdCommand = 'echo "$marker:\$PWD:$markerEnd"';
+      _terminal.textInput(pwdCommand);
+      _terminal.keyInput(TerminalKey.enter);
+
+      // Wait for output with timeout
+      String? initPath;
+      await Future.delayed(const Duration(milliseconds: 700));
+      if (!mounted) return;
+      final startTime = DateTime.now();
+      final timeout = const Duration(seconds: 3);
+
+      while (initPath == null) {
+        if (!mounted) return;
+        // Check if we've exceeded timeout
+        if (DateTime.now().difference(startTime) > timeout) {
+          contextSafe?.showRoundDialog(
+            title: libL10n.error,
+            child: Text(libL10n.empty),
+          );
+          return;
+        }
+
+        // Search for marked output in terminal buffer
+        final cmds = _terminal.buffer.lines.toList();
+        for (final line in cmds.reversed) {
+          final lineStr = line.toString();
+          if (lineStr.contains(marker) && lineStr.contains(markerEnd)) {
+            // Extract path between markers
+            final start = lineStr.indexOf(marker) + marker.length + 1; // +1 for ':'
+            final end = lineStr.indexOf(markerEnd) - 1; // -1 for ':'
+            if (start < end) {
+              initPath = lineStr.substring(start, end);
+              if (initPath.isEmpty || initPath == '\$PWD') {
+                initPath = null;
+              } else {
+                break;
+              }
+            }
+          }
+        }
+
+        // Short wait before checking again
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+      if (!mounted) return;
+
+      if (!initPath.startsWith('/')) {
+        context.showRoundDialog(
+          title: libL10n.error,
+          child: Text('${l10n.remotePath}: $initPath'),
+        );
+        return;
+      }
+
+      // iOS: let go of the terminal's text input and wait for the keyboard
+      // transition to finish before pushing the page — pushing over a live
+      // IME has been seen to SIGABRT in Flutter's text input plumbing.
+      if (isIOS) {
+        widget.args.focusNode?.unfocus();
+        FocusManager.instance.primaryFocus?.unfocus();
+        await _waitForKeyboardDismiss();
+        if (!mounted) return;
+      }
+
+      final args = SftpPageArgs(spi: fileSpi, initPath: initPath);
+      SftpPage.route.go(context, args);
+    } finally {
+      _isOpeningFileBrowser = false;
+    }
+  }
+
+  /// Waits until the keyboard's view inset is gone, with a timeout so a
+  /// stuck keyboard never blocks the route forever.
+  Future<void> _waitForKeyboardDismiss() async {
+    final deadline = DateTime.now().add(const Duration(seconds: 2));
+    while (mounted) {
+      final bottom = MediaQuery.maybeViewInsetsOf(context)?.bottom ?? 0;
+      if (bottom <= 1 || DateTime.now().isAfter(deadline)) return;
+      // Give the framework a frame to rebuild the insets before asking again.
+      await Future.delayed(const Duration(milliseconds: 50));
     }
   }
 

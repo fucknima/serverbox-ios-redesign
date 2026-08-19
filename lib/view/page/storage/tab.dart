@@ -623,7 +623,8 @@ class _PickPage extends ConsumerWidget {
           if (state.servers[id] case final spi? when _canBrowse(ref, spi)) spi,
       ];
       return SafeArea(
-        bottom: false,
+        top: false,
+        bottom: true,
         child: IosGroupedList(
         children: [
           IosSection(
