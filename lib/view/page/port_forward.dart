@@ -40,6 +40,10 @@ final class _PortForwardPageState extends ConsumerState<PortForwardPage> {
 
   void _showBetaWarning() {
     if (Stores.setting.portForwardBetaWarned.fetch()) return;
+    if (isIOS) {
+      _showBetaWarningIos();
+      return;
+    }
     var noMore = false;
     context.showRoundDialog(
       title: libL10n.attention,
@@ -67,6 +71,46 @@ final class _PortForwardPageState extends ConsumerState<PortForwardPage> {
         ],
       ),
       actions: [Btnx.ok],
+    );
+  }
+
+  Future<void> _showBetaWarningIos() async {
+    var noMore = false;
+    await showCupertinoDialog<void>(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: Text(libL10n.attention),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(context.l10n.portForwardBeta),
+            const SizedBox(height: 12),
+            StatefulBuilder(
+              builder: (_, setState) => Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CupertinoSwitch(
+                    value: noMore,
+                    onChanged: (v) => setState(() => noMore = v),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(l10n.noPromptAgain),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () {
+              Stores.setting.portForwardBetaWarned.put(noMore);
+              Navigator.pop(ctx);
+            },
+            child: Text(libL10n.ok),
+          ),
+        ],
+      ),
     );
   }
 
@@ -135,6 +179,36 @@ final class _PortForwardPageState extends ConsumerState<PortForwardPage> {
   }
 
   Widget _buildEmpty() {
+    if (isIOS) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              CupertinoIcons.arrow_2_circlepath,
+              size: 56,
+              color: IosPalette.secondaryLabel(context),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              libL10n.empty,
+              style: TextStyle(
+                fontSize: 15,
+                color: IosPalette.secondaryLabel(context),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              context.l10n.portForward_startPrompt,
+              style: TextStyle(
+                fontSize: 13,
+                color: IosPalette.secondaryLabel(context),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -189,39 +263,46 @@ final class _PortForwardPageState extends ConsumerState<PortForwardPage> {
             value: isActive,
             onChanged: (_) => _notifier.toggleForward(config.id),
           ),
-          PopupMenu(
-            items: [
-              PopupMenuItem(
-                value: 'edit',
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.edit, size: 18),
-                    const SizedBox(width: 8),
-                    Text(libL10n.edit),
-                  ],
+          if (isIOS)
+            CupertinoButton(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              onPressed: () => _showConfigMenu(config),
+              child: const Icon(CupertinoIcons.ellipsis, size: 18),
+            )
+          else
+            PopupMenu(
+              items: [
+                PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.edit, size: 18),
+                      const SizedBox(width: 8),
+                      Text(libL10n.edit),
+                    ],
+                  ),
                 ),
-              ),
-              PopupMenuItem(
-                value: 'delete',
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.delete, size: 18),
-                    const SizedBox(width: 8),
-                    Text(libL10n.delete),
-                  ],
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.delete, size: 18),
+                      const SizedBox(width: 8),
+                      Text(libL10n.delete),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-            onSelected: (val) {
-              if (val == 'edit') {
-                _onEdit(config);
-              } else if (val == 'delete') {
-                _onDelete(config);
-              }
-            },
-          ),
+              ],
+              onSelected: (val) {
+                if (val == 'edit') {
+                  _onEdit(config);
+                } else if (val == 'delete') {
+                  _onDelete(config);
+                }
+              },
+            ),
         ],
       ),
     );
@@ -235,7 +316,61 @@ final class _PortForwardPageState extends ConsumerState<PortForwardPage> {
     _showConfigDialog(config);
   }
 
-  void _onDelete(PortForwardConfig config) async {
+  void _showConfigMenu(PortForwardConfig config) {
+    showCupertinoModalPopup<void>(
+      context: context,
+      builder: (ctx) => CupertinoActionSheet(
+        title: Text(config.name),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _onEdit(config);
+            },
+            child: Text(libL10n.edit),
+          ),
+          CupertinoActionSheetAction(
+            isDestructiveAction: true,
+            onPressed: () {
+              Navigator.pop(ctx);
+              _onDelete(config);
+            },
+            child: Text(libL10n.delete),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          isDefaultAction: true,
+          onPressed: () => Navigator.pop(ctx),
+          child: Text(libL10n.cancel),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onDelete(PortForwardConfig config) async {
+    if (isIOS) {
+      final sure = await showCupertinoDialog<bool>(
+        context: context,
+        builder: (ctx) => CupertinoAlertDialog(
+          title: Text(libL10n.attention),
+          content: Text(context.l10n.portForward_deleteConfirmFmt(config.name)),
+          actions: [
+            CupertinoDialogAction(
+              isDefaultAction: true,
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(libL10n.cancel),
+            ),
+            CupertinoDialogAction(
+              isDestructiveAction: true,
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(libL10n.delete),
+            ),
+          ],
+        ),
+      );
+      if (sure == true) await _notifier.removeConfig(config.id);
+      return;
+    }
     final sure = await context.showRoundDialog<bool>(
       title: libL10n.attention,
       child: Text(context.l10n.portForward_deleteConfirmFmt(config.name)),

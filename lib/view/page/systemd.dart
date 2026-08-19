@@ -11,6 +11,7 @@ import 'package:server_box/data/ssh/terminal_source.dart';
 import 'package:server_box/view/page/ssh/page/page.dart';
 import 'package:server_box/view/platform/ios_list.dart';
 import 'package:server_box/view/platform/ios_nav.dart';
+import 'package:server_box/view/platform/ios_palette.dart';
 import 'package:server_box/view/widget/page_issue.dart';
 
 final class SystemdPage extends ConsumerStatefulWidget {
@@ -205,6 +206,22 @@ final class _SystemdPageState extends ConsumerState<SystemdPage> {
     ref.watch(_pro.select((p) => (p.units, p.scopeFilter)));
     final filteredUnits = _notifier.filteredUnits;
     if (filteredUnits.isEmpty) {
+      if (isIOS) {
+        return SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            child: Center(
+              child: Text(
+                libL10n.empty,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: IosPalette.secondaryLabel(context),
+                ),
+              ),
+            ),
+          ),
+        );
+      }
       return SliverToBoxAdapter(
         child: CenterGreyTitle(libL10n.empty).paddingSymmetric(horizontal: 13),
       );
@@ -255,6 +272,37 @@ final class _SystemdPageState extends ConsumerState<SystemdPage> {
   }
 
   Widget _buildUnitFuncs(SystemdUnit unit) {
+    if (isIOS) {
+      return CupertinoButton(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        onPressed: () {
+          showCupertinoModalPopup<void>(
+            context: context,
+            builder: (ctx) => CupertinoActionSheet(
+              title: Text(unit.name),
+              actions: [
+                for (final func in unit.availableFuncs)
+                  CupertinoActionSheetAction(
+                    isDestructiveAction: func == SystemdUnitFunc.stop ||
+                        func == SystemdUnitFunc.restart,
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _handleUnitFuncSelected(unit, func);
+                    },
+                    child: Text(func.name.capitalize),
+                  ),
+              ],
+              cancelButton: CupertinoActionSheetAction(
+                isDefaultAction: true,
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(libL10n.cancel),
+              ),
+            ),
+          );
+        },
+        child: const Icon(CupertinoIcons.ellipsis, size: 18),
+      );
+    }
     return PopupMenu(
       items: unit.availableFuncs.map(_buildUnitFuncBtn).toList(),
       onSelected: (val) => _handleUnitFuncSelected(unit, val),
