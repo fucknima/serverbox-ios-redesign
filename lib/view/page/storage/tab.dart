@@ -299,9 +299,12 @@ class _FileTabPageState extends ConsumerState<FileTabPage>
       },
     );
 
-    // iPhone: one session header instead of the desktop tab strip.
+    // iPhone: one session header above the sessions, no desktop tab strip.
+    // A plain column child so it can grow with Dynamic Type.
     if (isIOS && !split) {
-      return Scaffold(appBar: _iosSessionBar, body: sessionView);
+      return Scaffold(
+        body: Column(children: [_iosSessionBar, Expanded(child: sessionView)]),
+      );
     }
 
     return Scaffold(
@@ -313,7 +316,7 @@ class _FileTabPageState extends ConsumerState<FileTabPage>
     );
   }
 
-  PreferredSizeWidget get _iosSessionBar => PreferredSizeListenBuilder(
+  Widget get _iosSessionBar => ListenBuilder(
     listenable: _sessions,
     builder: () {
       final current = _sessions.current;

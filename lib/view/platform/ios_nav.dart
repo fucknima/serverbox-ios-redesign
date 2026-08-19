@@ -303,29 +303,28 @@ class IosSessionHeader extends StatelessWidget implements PreferredSizeWidget {
       color: bg,
       child: SafeArea(
         bottom: false,
-        child: SizedBox(
-          height: 44,
-          // Row, not Stack: the title is an Expanded between the leading
-          // edge and the actions, so both sides take part in the layout and
-          // a long title ellipsizes instead of overlapping the buttons.
-          child: Row(
-            children: [
-              if (leading != null) ...[
-                SizedBox(width: 44, child: leading),
-              ],
-              Expanded(
-                child: Center(child: titleColumn),
-              ),
-              if (actions != null)
-                Padding(
-                  padding: const EdgeInsets.only(right: 4),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: actions!,
-                  ),
-                ),
+        // No fixed height: under large Dynamic Type the bar grows with the
+        // text instead of overflowing (the native nav bar does the same).
+        // Row, not Stack: the title is an Expanded between the leading edge
+        // and the actions, so both sides take part in the layout and a long
+        // title ellipsizes instead of overlapping the buttons.
+        child: Row(
+          children: [
+            if (leading != null) ...[
+              SizedBox(width: 44, child: leading),
             ],
-          ),
+            Expanded(
+              child: Center(child: titleColumn),
+            ),
+            if (actions != null)
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: actions!,
+                ),
+              ),
+          ],
         ),
       ),
     );

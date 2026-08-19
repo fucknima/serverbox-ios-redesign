@@ -171,13 +171,21 @@ class _SSHTabPageState extends ConsumerState<SSHTabPage>
 
     if (isIOS && !split) {
       return Scaffold(
-        // iPhone: one session header, no desktop tab strip. The FAB is gone
-        // — adding a server lives in the header's menu.
-        appBar: _iosSessionBar,
-        body: SessionTabsView<_SshSession>(
-          controller: _sessions,
-          leading: _picker,
-          builder: (_, tab) => tab.data.page,
+        // iPhone: one session header above the sessions, no desktop tab
+        // strip and no FAB. The header is a plain column child so it can
+        // grow with Dynamic Type instead of overflowing a fixed appBar
+        // height.
+        body: Column(
+          children: [
+            _iosSessionBar,
+            Expanded(
+              child: SessionTabsView<_SshSession>(
+                controller: _sessions,
+                leading: _picker,
+                builder: (_, tab) => tab.data.page,
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -215,7 +223,7 @@ class _SSHTabPageState extends ConsumerState<SSHTabPage>
     ),
   );
 
-  PreferredSizeWidget get _iosSessionBar => PreferredSizeListenBuilder(
+  Widget get _iosSessionBar => ListenBuilder(
     listenable: Listenable.merge([_sessions, _sortVersion]),
     builder: () {
       final current = _sessions.current;
