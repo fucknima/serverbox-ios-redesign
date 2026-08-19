@@ -104,4 +104,16 @@ abstract final class IosPalette {
 
   static Color grayByBrightness(bool isDark, {int level = 5}) =>
       isDark ? grayDark(level) : grayLight(level);
+
+  /// The momentary fill under a selected/tapped iOS row — `systemFill` / the
+  /// selected-cell tint, not a Material scheme color, so the design system
+  /// never inherits what the app's Material seed happened to be.
+  ///
+  /// systemFill's white-on-black tint is subtle; iOS table selection uses a
+  /// slightly stronger gray so the chosen row reads at a glance.
+  static Color selectedFillByBrightness(bool isDark) =>
+      isDark ? const Color(0xFF3A3A3C) : const Color(0xFFE5E5EA);
+
+  static Color selectedFill(BuildContext c) =>
+      selectedFillByBrightness(c.isDark);
 }

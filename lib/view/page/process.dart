@@ -245,36 +245,8 @@ class _ProcessPageState extends ConsumerState<ProcessPage>
     if (isIOS) {
       return IosNavBar(
         title: libL10n.process,
+        subtitle: widget.args.spi.name,
         actions: [
-          if (parseIssue != null)
-            Tooltip(
-              message: _parseFailureMessage(parseIssue.failure),
-              child: CupertinoButton(
-                padding: const EdgeInsets.all(8),
-                onPressed: () => context.showRoundDialog(
-                  title: libL10n.error,
-                  child: Text(_parseFailureMessage(parseIssue.failure)),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Pfs.copy(parseIssue.diagnostics),
-                      child: Text(libL10n.copy),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  CupertinoIcons.exclamationmark_triangle,
-                  size: 20,
-                ),
-              ),
-            ),
-          Tooltip(
-            message: libL10n.sort,
-            child: CupertinoButton(
-              padding: const EdgeInsets.all(8),
-              onPressed: _showIosSortMenu,
-              child: const Icon(CupertinoIcons.sort_up, size: 21),
-            ),
-          ),
           Tooltip(
             message: libL10n.refresh,
             child: CupertinoButton(
@@ -288,6 +260,39 @@ class _ProcessPageState extends ConsumerState<ProcessPage>
             ),
           ),
         ],
+        moreMenu: (context) => CupertinoActionSheet(
+          actions: [
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.pop(context);
+                _showIosSortMenu();
+              },
+              child: Text(libL10n.sort),
+            ),
+            if (parseIssue != null)
+              CupertinoActionSheetAction(
+                onPressed: () {
+                  Navigator.pop(context);
+                  context.showRoundDialog(
+                    title: libL10n.error,
+                    child: Text(_parseFailureMessage(parseIssue.failure)),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Pfs.copy(parseIssue.diagnostics),
+                        child: Text(libL10n.copy),
+                      ),
+                    ],
+                  );
+                },
+                child: Text(libL10n.error),
+              ),
+          ],
+          cancelButton: CupertinoActionSheetAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.pop(context),
+            child: Text(libL10n.cancel),
+          ),
+        ),
         body: LayoutBuilder(
           builder: (context, constraints) {
             final layout = _ProcessLayout.fromWidth(

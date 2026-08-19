@@ -44,6 +44,7 @@ class IosSection extends StatelessWidget {
     required this.children,
     this.background,
     this.borderRadius = 10,
+    this.separatorInset = 16,
   });
 
   final String? header;
@@ -51,6 +52,11 @@ class IosSection extends StatelessWidget {
   final List<Widget> children;
   final Color? background;
   final double borderRadius;
+
+  /// Where the hairline between rows starts, from the left cell edge. Rows
+  /// with a leading glyph pass a larger inset so the hairline lines up with
+  /// their title column instead of starting under the glyph.
+  final double separatorInset;
 
   @override
   Widget build(BuildContext context) {
@@ -68,12 +74,8 @@ class IosSection extends StatelessWidget {
     for (var i = 0; i < children.length; i++) {
       if (i != 0) {
         cells.add(Padding(
-          padding: const EdgeInsets.only(left: 16),
-          child: Container(
-            height: 0.5,
-            color: separatorColor,
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-          ),
+          padding: EdgeInsets.only(left: separatorInset),
+          child: Container(height: 0.5, color: separatorColor),
         ));
       }
       cells.add(children[i]);
@@ -145,6 +147,7 @@ class IosRow extends StatelessWidget {
     this.subtitleMaxLines = 1,
     this.selected = false,
     this.selectedColor,
+    this.trailingFlex = 1.0,
   });
 
   final String? title;
@@ -155,6 +158,8 @@ class IosRow extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final bool enabled;
+
+  /// The minimum row height (vertical 4pt padding is added either side).
   final double? height;
   final TextStyle? titleStyle;
   final Color? titleColor;
@@ -163,6 +168,11 @@ class IosRow extends StatelessWidget {
   final int subtitleMaxLines;
   final bool selected;
   final Color? selectedColor;
+
+  /// The fraction of the row width the trailing may occupy at most (1.0 =
+  /// unlimited). A value row uses ~0.5 so a long value cannot squeeze the
+  /// title to nothing.
+  final double trailingFlex;
 
   @override
   Widget build(BuildContext context) {
@@ -190,55 +200,67 @@ class IosRow extends StatelessWidget {
               )
             : null);
 
-    final content = Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        if (leading != null) ...[
-          leading!,
-          const SizedBox(width: 14),
-        ],
-        Expanded(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (title != null)
-                Text(
-                  title!,
-                  maxLines: titleMaxLines,
-                  overflow: TextOverflow.ellipsis,
-                  style: titleStyle_,
-                ),
-              if (subtitle != null) ...[
-                if (title != null) const SizedBox(height: 1),
-                Text(
-                  subtitle!,
-                  maxLines: subtitleMaxLines,
-                  overflow: TextOverflow.ellipsis,
-                  style: subtitleStyle_,
-                ),
-              ],
+    final content = LayoutBuilder(
+      builder: (context, constraints) {
+        final maxTrailingW = constraints.maxWidth * trailingFlex;
+        final trailingChild = effectiveTrailing == null
+            ? null
+            : ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxTrailingW),
+                child: effectiveTrailing,
+              );
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            if (leading != null) ...[
+              leading!,
+              const SizedBox(width: 14),
             ],
-          ),
-        ),
-        if (effectiveTrailing != null) ...[
-          const SizedBox(width: 8),
-          effectiveTrailing,
-        ],
-      ],
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (title != null)
+                    Text(
+                      title!,
+                      maxLines: titleMaxLines,
+                      overflow: TextOverflow.ellipsis,
+                      style: titleStyle_,
+                    ),
+                  if (subtitle != null) ...[
+                    if (title != null) const SizedBox(height: 1),
+                    Text(
+                      subtitle!,
+                      maxLines: subtitleMaxLines,
+                      overflow: TextOverflow.ellipsis,
+                      style: subtitleStyle_,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (trailingChild != null) ...[
+              const SizedBox(width: 8),
+              trailingChild,
+            ],
+          ],
+        );
+      },
     );
 
-    // Multi-line rows size to their content; single-line rows keep the
-    // standard heights.
-    final effectiveHeight = height ??
-        (subtitleMaxLines > 1
-            ? null
-            : (subtitle != null ? 44.0 : 33.0));
+    // Rows size to their content: a minimum height for the standard single-
+    // line case, no fixed height, so large Dynamic Type grows the row instead
+    // of clipping the text.
+    final minHeight =
+        height ?? (subtitle != null || titleMaxLines > 1 || subtitleMaxLines > 1
+            ? 44.0
+            : 32.0);
 
     final child = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: SizedBox(
-        height: effectiveHeight,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: minHeight),
         child: content,
       ),
     );
@@ -259,9 +281,9 @@ class IosRow extends StatelessWidget {
   }
 
   static Color _selectionColor(BuildContext context) {
-    return Theme.of(
-      context,
-    ).colorScheme.secondaryContainer.withValues(alpha: 0.55);
+    return IosPalette.selectedFillByBrightness(
+      Theme.of(context).brightness == Brightness.dark,
+    );
   }
 }
 
@@ -416,6 +438,9 @@ class IosValueRow extends StatelessWidget {
       leading: leading,
       chevron: chevron,
       onTap: onTap,
+      // Long values (model names, IPv6, paths) may not squeeze the title to
+      // nothing: cap the value at half the row and ellipsize it.
+      trailingFlex: 0.5,
       trailing: Text(
         value,
         maxLines: 1,

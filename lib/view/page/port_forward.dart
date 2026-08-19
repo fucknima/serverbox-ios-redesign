@@ -75,6 +75,7 @@ final class _PortForwardPageState extends ConsumerState<PortForwardPage> {
     if (isIOS) {
       return IosNavBar(
         title: l10n.portForwardBetaTitle,
+        subtitle: widget.args.spi.name,
         actions: [
           Tooltip(
             message: libL10n.add,

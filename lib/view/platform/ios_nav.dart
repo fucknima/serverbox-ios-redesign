@@ -129,16 +129,29 @@ class IosNavBar extends StatelessWidget {
   const IosNavBar({
     super.key,
     this.title,
+    this.subtitle,
     this.leading,
     this.actions,
+    this.moreMenu,
     this.body,
     this.background,
     this.bottom,
   });
 
   final String? title;
+
+  /// A second, smaller line under the title, e.g. the server this page
+  /// operates on. Ellipsized, never gridlocked with the actions.
+  final String? subtitle;
   final Widget? leading;
+
+  /// Up to two custom trailing buttons. More than that is folded into
+  /// [moreMenu] (via the action-overflow policy in [_fixedTrailing]).
   final List<Widget>? actions;
+
+  /// The contents of the "…" overflow menu when [actions] has more than two
+  /// entries. Every page can pass its own; the overflow folding is shared.
+  final Widget Function(BuildContext)? moreMenu;
   final Widget? body;
   final Color? background;
   final Widget? bottom;
@@ -161,22 +174,8 @@ class IosNavBar extends StatelessWidget {
                     onPressed: () => Navigator.maybePop(context),
                   )
                 : null),
-        middle: title == null
-            ? null
-            : Text(
-                title!,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-        trailing:
-            actions == null
-                ? null
-                : Row(mainAxisSize: MainAxisSize.min, children: actions!),
+        middle: _buildMiddle(context),
+        trailing: _fixedTrailing(context),
         backgroundColor: bg,
         border: Border(
           bottom: BorderSide(color: IosPalette.separatorByBrightness(isDark)),
@@ -188,6 +187,83 @@ class IosNavBar extends StatelessWidget {
           ?bottom,
         ],
       ),
+    );
+  }
+
+  Widget? _buildMiddle(BuildContext context) {
+    final title = this.title;
+    if (title == null) return null;
+    final subtitle = this.subtitle;
+    if (subtitle == null) {
+      return Text(
+        title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 17,
+          fontWeight: FontWeight.w600,
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
+      );
+    }
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
+        Text(
+          subtitle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 11,
+            color: IosPalette.secondaryLabelByBrightness(isDark),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// The action-overflow policy, shared by every page so no page has to think
+  /// about it: 0-2 actions render as-is; more than two renders the primary
+  /// (first) action plus a "…" that opens [moreMenu]. Keeps title/actions from
+  /// colliding on narrow screens and under large Dynamic Type.
+  Widget? _fixedTrailing(BuildContext context) {
+    final actions = this.actions;
+    if (actions == null || actions.isEmpty) return null;
+    final moreMenu = this.moreMenu;
+    if (actions.length <= 2 || moreMenu == null) {
+      return Row(mainAxisSize: MainAxisSize.min, children: actions);
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        actions.first,
+        CupertinoButton(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          onPressed: () => _showMoreMenu(context, moreMenu),
+          child: const Icon(CupertinoIcons.ellipsis, size: 22),
+        ),
+      ],
+    );
+  }
+
+  void _showMoreMenu(
+    BuildContext context,
+    Widget Function(BuildContext) moreMenu,
+  ) {
+    showCupertinoModalPopup<void>(
+      context: context,
+      builder: moreMenu,
     );
   }
 }

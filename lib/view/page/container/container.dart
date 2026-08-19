@@ -85,6 +85,7 @@ extension _ContainerPageWidgets on _ContainerPageState {
       // the nav bar instead of a Material TabBar under a Material bar.
       return IosNavBar(
         title: libL10n.container,
+        subtitle: widget.args.spi.name,
         actions: [_buildIosAddAction()],
         body: Column(
           children: [

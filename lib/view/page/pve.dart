@@ -91,6 +91,7 @@ final class _PvePageState extends ConsumerState<PvePage> {
     if (isIOS) {
       return IosNavBar(
         title: 'PVE',
+        subtitle: widget.args.spi.name,
         actions: [
           if (refreshBtn != null)
             Tooltip(

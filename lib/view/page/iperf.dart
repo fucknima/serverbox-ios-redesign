@@ -38,6 +38,7 @@ class _IPerfPageState extends State<IPerfPage> {
     if (isIOS) {
       return IosNavBar(
         title: 'iperf',
+        subtitle: widget.args.spi.name,
         actions: [
           Tooltip(
             message: libL10n.start,

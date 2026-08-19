@@ -43,6 +43,7 @@ final class _SystemdPageState extends ConsumerState<SystemdPage> {
     if (isIOS) {
       return IosNavBar(
         title: l10n.systemd,
+        subtitle: widget.args.spi.name,
         actions: [
           Tooltip(
             message: libL10n.refresh,
