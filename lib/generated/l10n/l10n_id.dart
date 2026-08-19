@@ -1456,4 +1456,7 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get parentDir => 'Parent folder';
+
+  @override
+  String get backupSecurity => 'Security';
 }

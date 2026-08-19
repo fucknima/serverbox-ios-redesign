@@ -2591,6 +2591,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Parent folder'**
   String get parentDir;
+
+  /// No description provided for @backupSecurity.
+  ///
+  /// In en, this message translates to:
+  /// **'Security'**
+  String get backupSecurity;
 }
 
 class _AppLocalizationsDelegate

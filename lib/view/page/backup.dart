@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:computer/computer.dart';
 import 'package:fl_lib/fl_lib.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:icons_plus/icons_plus.dart';
@@ -16,6 +17,8 @@ import 'package:server_box/data/model/server/snippet.dart';
 import 'package:server_box/data/provider/snippet.dart';
 import 'package:server_box/data/res/misc.dart';
 import 'package:server_box/data/res/store.dart';
+import 'package:server_box/view/platform/ios_list.dart';
+import 'package:server_box/view/platform/ios_nav.dart';
 import 'package:webdav_client_plus/webdav_client_plus.dart';
 
 class BackupPage extends ConsumerStatefulWidget {
@@ -32,6 +35,9 @@ final class _BackupPageState extends ConsumerState<BackupPage>
   final webdavLoading = false.vn;
   final gistLoading = false.vn;
   late Future<_ICloudBackupStatus?> _icloudStatusFuture;
+
+  /// Which sync target is expanded on iPhone (iCloud/WebDAV/Gist/...).
+  String? _expandedRemote;
 
   @override
   void initState() {
@@ -52,7 +58,134 @@ final class _BackupPageState extends ConsumerState<BackupPage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    if (isIOS) {
+      return IosNavBar(title: libL10n.backup, body: _buildIosBody);
+    }
     return Scaffold(body: SafeArea(child: _buildBody));
+  }
+
+  /// The iPhone backup page: grouped sections, no per-item cards, notices as
+  /// section footers, sync targets expand in place.
+  Widget get _buildIosBody {
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      children: [
+        IosSection(
+          header: l10n.backupSecurity,
+          footer: l10n.backupTip,
+          children: [_buildIosBakPwd],
+        ),
+        IosSection(
+          header: libL10n.sync,
+          children: [
+            _iosRemoteSection(
+              'icloud',
+              CupertinoIcons.cloud,
+              'iCloud',
+              _icloudChildren,
+            ),
+            _iosRemoteSection(
+              'webdav',
+              CupertinoIcons.folder,
+              'WebDAV',
+              _webdavChildren,
+            ),
+            _iosRemoteSection(
+              'gist',
+              CupertinoIcons.doc_text,
+              'GitHub Gist',
+              _gistChildren,
+            ),
+            _iosRemoteSection(
+              'file',
+              CupertinoIcons.folder_open,
+              libL10n.file,
+              _fileChildren,
+            ),
+            _iosRemoteSection(
+              'clipboard',
+              CupertinoIcons.doc_on_clipboard,
+              libL10n.clipboard,
+              _clipboardChildren,
+            ),
+          ],
+        ),
+        IosSection(
+          header: libL10n.import,
+          children: [
+            IosRow(
+              title: libL10n.server,
+              leading: const IosSettingsIcon(CupertinoIcons.square_stack_3d_up),
+              chevron: true,
+              onTap: () => _onBulkImportServers(context),
+            ),
+            IosRow(
+              title: libL10n.snippet,
+              leading: const IosSettingsIcon(CupertinoIcons.doc_text),
+              chevron: true,
+              onTap: _onImportSnippet,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// One sync target: a disclosure row that expands its children in place.
+  Widget _iosRemoteSection(
+    String id,
+    IconData icon,
+    String title,
+    List<Widget> children,
+  ) {
+    final open = _expandedRemote == id;
+    return Column(
+      children: [
+        IosRow(
+          title: title,
+          leading: IosSettingsIcon(icon),
+          onTap: () => setState(() => _expandedRemote = open ? null : id),
+          trailing: AnimatedRotation(
+            turns: open ? 0.5 : 0,
+            duration: const Duration(milliseconds: 200),
+            child: const Icon(CupertinoIcons.chevron_down, size: 14),
+          ),
+        ),
+        if (open)
+          ...children.map(
+            (e) => Padding(
+              padding: const EdgeInsets.only(left: 16),
+              child: e,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget get _buildIosBakPwd {
+    return FutureBuilder<String?>(
+      future: SecureStoreProps.bakPwd.read(),
+      builder: (context, snapshot) {
+        final hasPwd = snapshot.data?.isNotEmpty == true;
+        return IosRow(
+          title: l10n.backupPassword,
+          subtitle: hasPwd ? l10n.backupEncrypted : l10n.backupNotEncrypted,
+          leading: const IosSettingsIcon(CupertinoIcons.lock_fill),
+          chevron: true,
+          onTap: () => _onTapSetBakPwd(context),
+          trailing: hasPwd
+              ? TextButton(
+                  onPressed: () async {
+                    await SecureStoreProps.bakPwd.write(null);
+                    Toast.show(l10n.backupPasswordRemoved);
+                    setState(() {});
+                  },
+                  child: Text(libL10n.delete),
+                )
+              : null,
+        );
+      },
+    );
   }
 
   Widget get _buildBody {
@@ -169,27 +302,55 @@ final class _BackupPageState extends ConsumerState<BackupPage>
     );
   }
 
+  List<Widget> get _fileChildren => [
+    ListTile(
+      title: Text(libL10n.backup),
+      trailing: const Icon(Icons.save),
+      onTap: () => BackupService.backup(context, FileBackupSource()),
+    ),
+    ListTile(
+      trailing: const Icon(Icons.restore),
+      title: Text(libL10n.restore),
+      onTap: () => BackupService.restore(context, FileBackupSource()),
+    ),
+  ];
+
   Widget get _buildFile {
     return CardX(
       child: ExpandTile(
         leading: const Icon(Icons.file_open),
         title: Text(libL10n.file),
         initiallyExpanded: false,
-        children: [
-          ListTile(
-            title: Text(libL10n.backup),
-            trailing: const Icon(Icons.save),
-            onTap: () => BackupService.backup(context, FileBackupSource()),
-          ),
-          ListTile(
-            trailing: const Icon(Icons.restore),
-            title: Text(libL10n.restore),
-            onTap: () => BackupService.restore(context, FileBackupSource()),
-          ),
-        ],
+        children: _fileChildren,
       ),
     );
   }
+
+  List<Widget> get _icloudChildren => [
+    _buildSyncSettingsTile(),
+    _buildIcloudStatus,
+    ListTile(
+      title: Text(libL10n.auto),
+      trailing: StoreSwitch(
+        prop: PrefProps.icloudSync,
+        validator: (p0) async {
+          if (p0 && (PrefProps.webdavSync.get() || PrefProps.gistSync.get())) {
+            Toast.show(l10n.autoBackupConflict);
+            return false;
+          }
+          if (p0) {
+            final ok = await _ensureBakPwd(context);
+            if (!ok) return false;
+          }
+          if (p0) {
+            await bakSync.sync(rs: icloud);
+            if (mounted) _refreshIcloudStatus();
+          }
+          return true;
+        },
+      ),
+    ),
+  ];
 
   Widget get _buildIcloud {
     return CardX(
@@ -197,35 +358,78 @@ final class _BackupPageState extends ConsumerState<BackupPage>
         leading: const Icon(Icons.cloud),
         title: const Text('iCloud'),
         initiallyExpanded: false,
-        children: [
-          _buildSyncSettingsTile(),
-          _buildIcloudStatus,
-          ListTile(
-            title: Text(libL10n.auto),
-            trailing: StoreSwitch(
-              prop: PrefProps.icloudSync,
-              validator: (p0) async {
-                if (p0 &&
-                    (PrefProps.webdavSync.get() || PrefProps.gistSync.get())) {
-                  Toast.show(l10n.autoBackupConflict);
-                  return false;
-                }
-                if (p0) {
-                  final ok = await _ensureBakPwd(context);
-                  if (!ok) return false;
-                }
-                if (p0) {
-                  await bakSync.sync(rs: icloud);
-                  if (mounted) _refreshIcloudStatus();
-                }
-                return true;
-              },
-            ),
-          ),
-        ],
+        children: _icloudChildren,
       ),
     );
   }
+
+  List<Widget> get _webdavChildren => [
+    _buildSyncSettingsTile(),
+    ListTile(
+      title: Text(libL10n.setting),
+      trailing: const Icon(Icons.settings),
+      onTap: () async => _onTapWebdavSetting(context),
+    ),
+    ListTile(
+      title: Text(libL10n.auto),
+      trailing: StoreSwitch(
+        prop: PrefProps.webdavSync,
+        validator: (p0) async {
+          if (p0 && isICloudSupported && PrefProps.icloudSync.get()) {
+            Toast.show(l10n.autoBackupConflict);
+            return false;
+          }
+          if (p0) {
+            final ok = await _ensureBakPwd(context);
+            if (!ok) return false;
+          }
+          if (p0) {
+            final url = PrefProps.webdavUrl.get();
+            final user = PrefProps.webdavUser.get();
+            final pwd = PrefProps.webdavPwd.get();
+
+            final anyNull = url == null || user == null || pwd == null;
+            if (anyNull) {
+              Toast.show(l10n.webdavSettingEmpty);
+              return false;
+            }
+
+            final anyEmpty = url.isEmpty || user.isEmpty || pwd.isEmpty;
+            if (anyEmpty) {
+              Toast.show(l10n.webdavSettingEmpty);
+              return false;
+            }
+
+            webdavLoading.value = true;
+            await bakSync.sync(rs: Webdav.shared);
+            webdavLoading.value = false;
+          }
+          return true;
+        },
+      ),
+    ),
+    ListTile(
+      title: Text(libL10n.manual),
+      trailing: webdavLoading.listenVal((loading) {
+        if (loading) return SizedLoading.small;
+
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextButton(
+              onPressed: () async => _onTapWebdavDl(context),
+              child: Text(libL10n.restore),
+            ),
+            UIs.width7,
+            TextButton(
+              onPressed: () async => _onTapWebdavUp(context),
+              child: Text(libL10n.backup),
+            ),
+          ],
+        );
+      }),
+    ),
+  ];
 
   Widget get _buildWebdav {
     return CardX(
@@ -233,76 +437,71 @@ final class _BackupPageState extends ConsumerState<BackupPage>
         leading: const Icon(Icons.storage),
         title: const Text('WebDAV'),
         initiallyExpanded: false,
-        children: [
-          _buildSyncSettingsTile(),
-          ListTile(
-            title: Text(libL10n.setting),
-            trailing: const Icon(Icons.settings),
-            onTap: () async => _onTapWebdavSetting(context),
-          ),
-          ListTile(
-            title: Text(libL10n.auto),
-            trailing: StoreSwitch(
-              prop: PrefProps.webdavSync,
-              validator: (p0) async {
-                if (p0 && isICloudSupported && PrefProps.icloudSync.get()) {
-                  Toast.show(l10n.autoBackupConflict);
-                  return false;
-                }
-                if (p0) {
-                  final ok = await _ensureBakPwd(context);
-                  if (!ok) return false;
-                }
-                if (p0) {
-                  final url = PrefProps.webdavUrl.get();
-                  final user = PrefProps.webdavUser.get();
-                  final pwd = PrefProps.webdavPwd.get();
-
-                  final anyNull = url == null || user == null || pwd == null;
-                  if (anyNull) {
-                    Toast.show(l10n.webdavSettingEmpty);
-                    return false;
-                  }
-
-                  final anyEmpty = url.isEmpty || user.isEmpty || pwd.isEmpty;
-                  if (anyEmpty) {
-                    Toast.show(l10n.webdavSettingEmpty);
-                    return false;
-                  }
-
-                  webdavLoading.value = true;
-                  await bakSync.sync(rs: Webdav.shared);
-                  webdavLoading.value = false;
-                }
-                return true;
-              },
-            ),
-          ),
-          ListTile(
-            title: Text(libL10n.manual),
-            trailing: webdavLoading.listenVal((loading) {
-              if (loading) return SizedLoading.small;
-
-              return Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextButton(
-                    onPressed: () async => _onTapWebdavDl(context),
-                    child: Text(libL10n.restore),
-                  ),
-                  UIs.width7,
-                  TextButton(
-                    onPressed: () async => _onTapWebdavUp(context),
-                    child: Text(libL10n.backup),
-                  ),
-                ],
-              );
-            }),
-          ),
-        ],
+        children: _webdavChildren,
       ),
     );
   }
+
+  List<Widget> get _gistChildren => [
+    _buildSyncSettingsTile(),
+    ListTile(
+      title: Text(libL10n.setting),
+      trailing: const Icon(Icons.settings),
+      onTap: () async => _onTapGistSetting(context),
+    ),
+    ListTile(
+      title: Text(libL10n.auto),
+      trailing: StoreSwitch(
+        prop: PrefProps.gistSync,
+        validator: (p0) async {
+          if (p0 &&
+              ((isICloudSupported && PrefProps.icloudSync.get()) ||
+                  PrefProps.webdavSync.get())) {
+            Toast.show(l10n.autoBackupConflict);
+            return false;
+          }
+          if (p0) {
+            final ok = await _ensureBakPwd(context);
+            if (!ok) return false;
+          }
+          if (p0) {
+            final token = PrefProps.githubToken.get();
+            // Allow empty gistId (will create one on first upload)
+            final hasToken = token != null && token.isNotEmpty;
+            if (!hasToken) {
+              Toast.show(context.l10n.githubGistTokenEmpty);
+              return false;
+            }
+            gistLoading.value = true;
+            await bakSync.sync(rs: GistRs.shared);
+            gistLoading.value = false;
+          }
+          return true;
+        },
+      ),
+    ),
+    ListTile(
+      title: Text(libL10n.manual),
+      trailing: gistLoading.listenVal((loading) {
+        if (loading) return SizedLoading.small;
+
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextButton(
+              onPressed: () async => _onTapGistDl(context),
+              child: Text(libL10n.restore),
+            ),
+            UIs.width7,
+            TextButton(
+              onPressed: () async => _onTapGistUp(context),
+              child: Text(libL10n.backup),
+            ),
+          ],
+        );
+      }),
+    ),
+  ];
 
   Widget get _buildGist {
     return CardX(
@@ -310,88 +509,30 @@ final class _BackupPageState extends ConsumerState<BackupPage>
         leading: const Icon(Icons.code),
         title: const Text('GitHub Gist'),
         initiallyExpanded: false,
-        children: [
-          _buildSyncSettingsTile(),
-          ListTile(
-            title: Text(libL10n.setting),
-            trailing: const Icon(Icons.settings),
-            onTap: () async => _onTapGistSetting(context),
-          ),
-          ListTile(
-            title: Text(libL10n.auto),
-            trailing: StoreSwitch(
-              prop: PrefProps.gistSync,
-              validator: (p0) async {
-                if (p0 &&
-                    ((isICloudSupported && PrefProps.icloudSync.get()) ||
-                        PrefProps.webdavSync.get())) {
-                  Toast.show(l10n.autoBackupConflict);
-                  return false;
-                }
-                if (p0) {
-                  final ok = await _ensureBakPwd(context);
-                  if (!ok) return false;
-                }
-                if (p0) {
-                  final token = PrefProps.githubToken.get();
-                  // Allow empty gistId (will create one on first upload)
-                  final hasToken = token != null && token.isNotEmpty;
-                  if (!hasToken) {
-                    Toast.show(context.l10n.githubGistTokenEmpty);
-                    return false;
-                  }
-                  gistLoading.value = true;
-                  await bakSync.sync(rs: GistRs.shared);
-                  gistLoading.value = false;
-                }
-                return true;
-              },
-            ),
-          ),
-          ListTile(
-            title: Text(libL10n.manual),
-            trailing: gistLoading.listenVal((loading) {
-              if (loading) return SizedLoading.small;
-
-              return Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextButton(
-                    onPressed: () async => _onTapGistDl(context),
-                    child: Text(libL10n.restore),
-                  ),
-                  UIs.width7,
-                  TextButton(
-                    onPressed: () async => _onTapGistUp(context),
-                    child: Text(libL10n.backup),
-                  ),
-                ],
-              );
-            }),
-          ),
-        ],
+        children: _gistChildren,
       ),
     );
   }
+
+  List<Widget> get _clipboardChildren => [
+    ListTile(
+      title: Text(libL10n.backup),
+      trailing: const Icon(Icons.save),
+      onTap: () => BackupService.backup(context, ClipboardBackupSource()),
+    ),
+    ListTile(
+      trailing: const Icon(Icons.restore),
+      title: Text(libL10n.restore),
+      onTap: () => BackupService.restore(context, ClipboardBackupSource()),
+    ),
+  ];
 
   Widget get _buildClipboard {
     return CardX(
       child: ExpandTile(
         leading: const Icon(Icons.content_paste),
         title: Text(libL10n.clipboard),
-        children: [
-          ListTile(
-            title: Text(libL10n.backup),
-            trailing: const Icon(Icons.save),
-            onTap: () => BackupService.backup(context, ClipboardBackupSource()),
-          ),
-          ListTile(
-            trailing: const Icon(Icons.restore),
-            title: Text(libL10n.restore),
-            onTap: () =>
-                BackupService.restore(context, ClipboardBackupSource()),
-          ),
-        ],
+        children: _clipboardChildren,
       ),
     );
   }
@@ -492,72 +633,70 @@ final class _BackupPageState extends ConsumerState<BackupPage>
     );
   }
 
+  Future<void> _onImportSnippet() async {
+    final data = await context.showImportDialog(
+      title: libL10n.snippet,
+      modelDef: Snippet.example.toJson(),
+    );
+    if (data == null) return;
+    String str;
+    try {
+      str = utf8.decode(data);
+    } on FormatException catch (e, s) {
+      context.showErrDialog(e, s, libL10n.error);
+      return;
+    }
+    final (list, _) = await context.showLoadingDialog(
+      fn: () => Computer.shared.start((s) {
+        return json.decode(s) as List;
+      }, str),
+    );
+    if (list == null || list.isEmpty) return;
+    final snippets = <Snippet>[];
+    final errs = <String>[];
+    for (final item in list) {
+      try {
+        final snippet = Snippet.fromJson(item);
+        snippets.add(snippet);
+      } catch (e) {
+        errs.add(e.toString());
+      }
+    }
+    if (snippets.isEmpty) {
+      Toast.show(libL10n.empty);
+      return;
+    }
+    if (errs.isNotEmpty) {
+      context.showRoundDialog(
+        title: libL10n.error,
+        child: SingleChildScrollView(child: Text(errs.join('\n'))),
+      );
+      return;
+    }
+    final snippetNames = snippets.map((e) => e.name).join(', ');
+    // The dialog answers; the page acts on the answer, and closes itself.
+    final confirmed = await context.showRoundDialog<bool>(
+      title: libL10n.attention,
+      child: SingleChildScrollView(
+        child: Text(libL10n.askContinue('${libL10n.import} [$snippetNames]')),
+      ),
+      actions: Btn.ok().toList,
+    );
+    if (confirmed != true || !context.mounted) return;
+    final notifier = ref.read(snippetProvider.notifier);
+    for (final snippet in snippets) {
+      notifier.add(snippet);
+    }
+    context.pop();
+  }
+
   Widget get _buildImportSnippet {
     return ListTile(
       title: Text(libL10n.snippet),
       leading: const Icon(MingCute.code_line),
       trailing: const Icon(Icons.keyboard_arrow_right),
-      onTap: () async {
-        final data = await context.showImportDialog(
-          title: libL10n.snippet,
-          modelDef: Snippet.example.toJson(),
-        );
-        if (data == null) return;
-        String str;
-        try {
-          str = utf8.decode(data);
-        } on FormatException catch (e, s) {
-          context.showErrDialog(e, s, libL10n.error);
-          return;
-        }
-        final (list, _) = await context.showLoadingDialog(
-          fn: () => Computer.shared.start((s) {
-            return json.decode(s) as List;
-          }, str),
-        );
-        if (list == null || list.isEmpty) return;
-        final snippets = <Snippet>[];
-        final errs = <String>[];
-        for (final item in list) {
-          try {
-            final snippet = Snippet.fromJson(item);
-            snippets.add(snippet);
-          } catch (e) {
-            errs.add(e.toString());
-          }
-        }
-        if (snippets.isEmpty) {
-          Toast.show(libL10n.empty);
-          return;
-        }
-        if (errs.isNotEmpty) {
-          context.showRoundDialog(
-            title: libL10n.error,
-            child: SingleChildScrollView(child: Text(errs.join('\n'))),
-          );
-          return;
-        }
-        final snippetNames = snippets.map((e) => e.name).join(', ');
-        // The dialog answers; the page acts on the answer, and closes
-        // itself. Doing both from the button meant two pops in a row from a
-        // callback that can see two navigators.
-        final confirmed = await context.showRoundDialog<bool>(
-          title: libL10n.attention,
-          child: SingleChildScrollView(
-            child: Text(
-              libL10n.askContinue('${libL10n.import} [$snippetNames]'),
-            ),
-          ),
-          actions: Btn.ok().toList,
-        );
-        if (confirmed != true || !context.mounted) return;
-        final notifier = ref.read(snippetProvider.notifier);
-        for (final snippet in snippets) {
-          notifier.add(snippet);
-        }
-        context.pop();
-      },
-    ).cardx;
+      onTap: _onImportSnippet,
+    );
   }
 
   @override

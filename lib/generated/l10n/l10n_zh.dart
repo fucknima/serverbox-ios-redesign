@@ -1347,6 +1347,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get parentDir => '上一级';
+
+  @override
+  String get backupSecurity => '安全';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).

@@ -433,5 +433,6 @@
   "emptyServersTip": "添加你的第一台服务器,开始监控 CPU、内存和网络。",
   "quickActions": "快捷操作",
   "localFiles": "本机文件",
-  "parentDir": "上一级"
+  "parentDir": "上一级",
+  "backupSecurity": "安全"
 }

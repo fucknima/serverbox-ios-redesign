@@ -494,5 +494,6 @@
   "emptyServersTip": "Add your first server to start monitoring CPU, memory and network.",
   "quickActions": "Quick actions",
   "localFiles": "Local files",
-  "parentDir": "Parent folder"
+  "parentDir": "Parent folder",
+  "backupSecurity": "Security"
 }
