@@ -83,24 +83,37 @@ class _SnippetEditPageState extends ConsumerState<SnippetEditPage> {
               child: const Icon(CupertinoIcons.checkmark, size: 22),
             ),
           ),
-          if (snippet != null)
-            Tooltip(
-              message: libL10n.delete,
-              child: CupertinoButton(
-                padding: const EdgeInsets.all(8),
-                onPressed: () => _confirmDelete(snippet),
-                child: const Icon(CupertinoIcons.trash, size: 21),
-              ),
-            ),
         ],
         body: _buildIosBody(),
         bottom: SafeArea(
           top: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-            child: CupertinoButton.filled(
-              onPressed: _run,
-              child: Text(libL10n.run),
+            padding: const EdgeInsets.fromLTRB(0, 0, 0, 10),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (snippet != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: IosSection(
+                      children: [
+                        IosRow(
+                          title: '${libL10n.delete} ${libL10n.snippet}',
+                          titleColor: IosPalette.redLight,
+                          onTap: () => _confirmDelete(snippet),
+                        ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: CupertinoButton.filled(
+                    onPressed: _run,
+                    child: Text(libL10n.run),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -117,6 +130,33 @@ class _SnippetEditPageState extends ConsumerState<SnippetEditPage> {
   }
 
   Future<void> _confirmDelete(Snippet snippet) async {
+    if (isIOS) {
+      final confirmed = await showCupertinoDialog<bool>(
+        context: context,
+        builder: (ctx) => CupertinoAlertDialog(
+          title: Text(libL10n.attention),
+          content: Text(
+            libL10n.askContinue('${libL10n.delete} ${libL10n.snippet}(${snippet.name})'),
+          ),
+          actions: [
+            CupertinoDialogAction(
+              isDefaultAction: true,
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(libL10n.cancel),
+            ),
+            CupertinoDialogAction(
+              isDestructiveAction: true,
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(libL10n.delete),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !context.mounted) return;
+      ref.read(snippetProvider.notifier).del(snippet);
+      _leave();
+      return;
+    }
     final confirmed = await context.showRoundDialog<bool>(
       title: libL10n.attention,
       child: Text(

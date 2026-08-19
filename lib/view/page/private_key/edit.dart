@@ -219,6 +219,33 @@ class _PrivateKeyEditPageState extends ConsumerState<PrivateKeyEditPage> {
   }
 
   Future<void> _confirmDelete() async {
+    if (isIOS) {
+      final confirmed = await showCupertinoDialog<bool>(
+        context: context,
+        builder: (ctx) => CupertinoAlertDialog(
+          title: Text(libL10n.attention),
+          content: Text(
+            libL10n.askContinue('${libL10n.delete} ${l10n.privateKey}(${pki!.id})'),
+          ),
+          actions: [
+            CupertinoDialogAction(
+              isDefaultAction: true,
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(libL10n.cancel),
+            ),
+            CupertinoDialogAction(
+              isDestructiveAction: true,
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(libL10n.delete),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !context.mounted) return;
+      _notifier.delete(pki!);
+      context.pop();
+      return;
+    }
     final confirmed = await context.showRoundDialog<bool>(
       title: libL10n.attention,
       child: Text(

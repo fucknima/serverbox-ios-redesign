@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -244,6 +245,38 @@ final class _BackupPageState extends ConsumerState<BackupPage>
       future: SecureStoreProps.bakPwd.read(),
       builder: (context, snapshot) {
         final hasPwd = snapshot.data?.isNotEmpty == true;
+        if (isIOS) {
+          return IosRow(
+            leading: const IosSettingsIcon(CupertinoIcons.lock_fill),
+            title: l10n.backupPassword,
+            subtitle: hasPwd ? l10n.backupEncrypted : l10n.backupNotEncrypted,
+            chevron: true,
+            onTap: () async => _onTapSetBakPwd(context),
+            trailing: hasPwd
+                ? CupertinoButton(
+                    padding: const EdgeInsets.all(4),
+                    onPressed: () async {
+                      await SecureStoreProps.bakPwd.write(null);
+                      Toast.show(l10n.backupPasswordRemoved);
+                      setState(() {});
+                    },
+                    child: Text(
+                      libL10n.delete,
+                      style: const TextStyle(
+                        color: CupertinoColors.systemRed,
+                        fontSize: 15,
+                      ),
+                    ),
+                  )
+                : Text(
+                    libL10n.setting,
+                    style: const TextStyle(
+                      color: CupertinoColors.systemBlue,
+                      fontSize: 15,
+                    ),
+                  ),
+          );
+        }
         return CardX(
           child: ListTile(
             leading: const Icon(Icons.lock),
@@ -331,14 +364,14 @@ final class _BackupPageState extends ConsumerState<BackupPage>
   }
 
   List<Widget> get _fileChildren => [
-    ListTile(
-      title: Text(libL10n.backup),
-      trailing: const Icon(Icons.save),
+    IosRow(
+      title: libL10n.backup,
+      trailing: const Icon(CupertinoIcons.square_arrow_up, size: 17),
       onTap: () => BackupService.backup(context, FileBackupSource()),
     ),
-    ListTile(
-      trailing: const Icon(Icons.restore),
-      title: Text(libL10n.restore),
+    IosRow(
+      trailing: const Icon(CupertinoIcons.square_arrow_down, size: 17),
+      title: libL10n.restore,
       onTap: () => BackupService.restore(context, FileBackupSource()),
     ),
   ];
@@ -357,26 +390,24 @@ final class _BackupPageState extends ConsumerState<BackupPage>
   List<Widget> get _icloudChildren => [
     _buildSyncSettingsTile(),
     _buildIcloudStatus,
-    ListTile(
-      title: Text(libL10n.auto),
-      trailing: StoreSwitch(
-        prop: PrefProps.icloudSync,
-        validator: (p0) async {
-          if (p0 && (PrefProps.webdavSync.get() || PrefProps.gistSync.get())) {
-            Toast.show(l10n.autoBackupConflict);
-            return false;
-          }
-          if (p0) {
-            final ok = await _ensureBakPwd(context);
-            if (!ok) return false;
-          }
-          if (p0) {
-            await bakSync.sync(rs: icloud);
-            if (mounted) _refreshIcloudStatus();
-          }
-          return true;
-        },
-      ),
+    _syncRow(
+      title: libL10n.auto,
+      prop: PrefProps.icloudSync,
+      validator: (p0) async {
+        if (p0 && (PrefProps.webdavSync.get() || PrefProps.gistSync.get())) {
+          Toast.show(l10n.autoBackupConflict);
+          return false;
+        }
+        if (p0) {
+          final ok = await _ensureBakPwd(context);
+          if (!ok) return false;
+        }
+        if (p0) {
+          await bakSync.sync(rs: icloud);
+          if (mounted) _refreshIcloudStatus();
+        }
+        return true;
+      },
     ),
   ];
 
@@ -393,70 +424,150 @@ final class _BackupPageState extends ConsumerState<BackupPage>
 
   List<Widget> get _webdavChildren => [
     _buildSyncSettingsTile(),
-    ListTile(
-      title: Text(libL10n.setting),
-      trailing: const Icon(Icons.settings),
-      onTap: () async => _onTapWebdavSetting(context),
-    ),
-    ListTile(
-      title: Text(libL10n.auto),
-      trailing: StoreSwitch(
-        prop: PrefProps.webdavSync,
-        validator: (p0) async {
-          if (p0 && isICloudSupported && PrefProps.icloudSync.get()) {
-            Toast.show(l10n.autoBackupConflict);
-            return false;
-          }
-          if (p0) {
-            final ok = await _ensureBakPwd(context);
-            if (!ok) return false;
-          }
-          if (p0) {
-            final url = PrefProps.webdavUrl.get();
-            final user = PrefProps.webdavUser.get();
-            final pwd = PrefProps.webdavPwd.get();
+    isIOS
+        ? IosRow(
+            title: libL10n.setting,
+            chevron: true,
+            onTap: () async => _onTapWebdavSetting(context),
+          )
+        : ListTile(
+            title: Text(libL10n.setting),
+            trailing: const Icon(Icons.settings),
+            onTap: () async => _onTapWebdavSetting(context),
+          ),
+    isIOS
+        ? IosRow(
+            title: libL10n.auto,
+            trailing: StoreSwitch(
+              prop: PrefProps.webdavSync,
+              validator: (p0) async {
+                if (p0 && isICloudSupported && PrefProps.icloudSync.get()) {
+                  Toast.show(l10n.autoBackupConflict);
+                  return false;
+                }
+                if (p0) {
+                  final ok = await _ensureBakPwd(context);
+                  if (!ok) return false;
+                }
+                if (p0) {
+                  final url = PrefProps.webdavUrl.get();
+                  final user = PrefProps.webdavUser.get();
+                  final pwd = PrefProps.webdavPwd.get();
 
-            final anyNull = url == null || user == null || pwd == null;
-            if (anyNull) {
-              Toast.show(l10n.webdavSettingEmpty);
-              return false;
-            }
+                  final anyNull = url == null || user == null || pwd == null;
+                  if (anyNull) {
+                    Toast.show(l10n.webdavSettingEmpty);
+                    return false;
+                  }
 
-            final anyEmpty = url.isEmpty || user.isEmpty || pwd.isEmpty;
-            if (anyEmpty) {
-              Toast.show(l10n.webdavSettingEmpty);
-              return false;
-            }
+                  final anyEmpty = url.isEmpty || user.isEmpty || pwd.isEmpty;
+                  if (anyEmpty) {
+                    Toast.show(l10n.webdavSettingEmpty);
+                    return false;
+                  }
 
-            webdavLoading.value = true;
-            await bakSync.sync(rs: Webdav.shared);
-            webdavLoading.value = false;
-          }
-          return true;
-        },
-      ),
-    ),
-    ListTile(
-      title: Text(libL10n.manual),
-      trailing: webdavLoading.listenVal((loading) {
-        if (loading) return SizedLoading.small;
-
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextButton(
-              onPressed: () async => _onTapWebdavDl(context),
-              child: Text(libL10n.restore),
+                  webdavLoading.value = true;
+                  await bakSync.sync(rs: Webdav.shared);
+                  webdavLoading.value = false;
+                }
+                return true;
+              },
             ),
-            UIs.width7,
-            TextButton(
-              onPressed: () async => _onTapWebdavUp(context),
-              child: Text(libL10n.backup),
+          )
+        : ListTile(
+            title: Text(libL10n.auto),
+            trailing: StoreSwitch(
+              prop: PrefProps.webdavSync,
+              validator: (p0) async {
+                if (p0 && isICloudSupported && PrefProps.icloudSync.get()) {
+                  Toast.show(l10n.autoBackupConflict);
+                  return false;
+                }
+                if (p0) {
+                  final ok = await _ensureBakPwd(context);
+                  if (!ok) return false;
+                }
+                if (p0) {
+                  final url = PrefProps.webdavUrl.get();
+                  final user = PrefProps.webdavUser.get();
+                  final pwd = PrefProps.webdavPwd.get();
+
+                  final anyNull = url == null || user == null || pwd == null;
+                  if (anyNull) {
+                    Toast.show(l10n.webdavSettingEmpty);
+                    return false;
+                  }
+
+                  final anyEmpty = url.isEmpty || user.isEmpty || pwd.isEmpty;
+                  if (anyEmpty) {
+                    Toast.show(l10n.webdavSettingEmpty);
+                    return false;
+                  }
+
+                  webdavLoading.value = true;
+                  await bakSync.sync(rs: Webdav.shared);
+                  webdavLoading.value = false;
+                }
+                return true;
+              },
             ),
-          ],
-        );
-      }),
-    ),
+          ),
+    isIOS
+        ? IosRow(
+            title: libL10n.manual,
+            trailing: webdavLoading.listenVal((loading) {
+              if (loading) return SizedLoading.small;
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () async => _onTapWebdavDl(context),
+                    child: Text(
+                      libL10n.restore,
+                      style: const TextStyle(
+                        color: CupertinoColors.systemBlue,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () async => _onTapWebdavUp(context),
+                    child: Text(
+                      libL10n.backup,
+                      style: const TextStyle(
+                        color: CupertinoColors.systemBlue,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }),
+          )
+        : ListTile(
+            title: Text(libL10n.manual),
+            trailing: webdavLoading.listenVal((loading) {
+              if (loading) return SizedLoading.small;
+
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextButton(
+                    onPressed: () async => _onTapWebdavDl(context),
+                    child: Text(libL10n.restore),
+                  ),
+                  UIs.width7,
+                  TextButton(
+                    onPressed: () async => _onTapWebdavUp(context),
+                    child: Text(libL10n.backup),
+                  ),
+                ],
+              );
+            }),
+          ),
   ];
 
   Widget get _buildWebdav {
@@ -472,63 +583,95 @@ final class _BackupPageState extends ConsumerState<BackupPage>
 
   List<Widget> get _gistChildren => [
     _buildSyncSettingsTile(),
-    ListTile(
-      title: Text(libL10n.setting),
-      trailing: const Icon(Icons.settings),
+    _navRow(
+      title: libL10n.setting,
       onTap: () async => _onTapGistSetting(context),
     ),
-    ListTile(
-      title: Text(libL10n.auto),
-      trailing: StoreSwitch(
-        prop: PrefProps.gistSync,
-        validator: (p0) async {
-          if (p0 &&
-              ((isICloudSupported && PrefProps.icloudSync.get()) ||
-                  PrefProps.webdavSync.get())) {
-            Toast.show(l10n.autoBackupConflict);
+    _syncRow(
+      title: libL10n.auto,
+      prop: PrefProps.gistSync,
+      validator: (p0) async {
+        if (p0 &&
+            ((isICloudSupported && PrefProps.icloudSync.get()) ||
+                PrefProps.webdavSync.get())) {
+          Toast.show(l10n.autoBackupConflict);
+          return false;
+        }
+        if (p0) {
+          final ok = await _ensureBakPwd(context);
+          if (!ok) return false;
+        }
+        if (p0) {
+          final token = PrefProps.githubToken.get();
+          // Allow empty gistId (will create one on first upload)
+          final hasToken = token != null && token.isNotEmpty;
+          if (!hasToken) {
+            Toast.show(context.l10n.githubGistTokenEmpty);
             return false;
           }
-          if (p0) {
-            final ok = await _ensureBakPwd(context);
-            if (!ok) return false;
-          }
-          if (p0) {
-            final token = PrefProps.githubToken.get();
-            // Allow empty gistId (will create one on first upload)
-            final hasToken = token != null && token.isNotEmpty;
-            if (!hasToken) {
-              Toast.show(context.l10n.githubGistTokenEmpty);
-              return false;
-            }
-            gistLoading.value = true;
-            await bakSync.sync(rs: GistRs.shared);
-            gistLoading.value = false;
-          }
-          return true;
-        },
-      ),
+          gistLoading.value = true;
+          await bakSync.sync(rs: GistRs.shared);
+          gistLoading.value = false;
+        }
+        return true;
+      },
     ),
-    ListTile(
-      title: Text(libL10n.manual),
-      trailing: gistLoading.listenVal((loading) {
-        if (loading) return SizedLoading.small;
+    isIOS
+        ? IosRow(
+            title: libL10n.manual,
+            trailing: gistLoading.listenVal((loading) {
+              if (loading) return SizedLoading.small;
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () async => _onTapGistDl(context),
+                    child: Text(
+                      libL10n.restore,
+                      style: const TextStyle(
+                        color: CupertinoColors.systemBlue,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () async => _onTapGistUp(context),
+                    child: Text(
+                      libL10n.backup,
+                      style: const TextStyle(
+                        color: CupertinoColors.systemBlue,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }),
+          )
+        : ListTile(
+            title: Text(libL10n.manual),
+            trailing: gistLoading.listenVal((loading) {
+              if (loading) return SizedLoading.small;
 
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextButton(
-              onPressed: () async => _onTapGistDl(context),
-              child: Text(libL10n.restore),
-            ),
-            UIs.width7,
-            TextButton(
-              onPressed: () async => _onTapGistUp(context),
-              child: Text(libL10n.backup),
-            ),
-          ],
-        );
-      }),
-    ),
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextButton(
+                    onPressed: () async => _onTapGistDl(context),
+                    child: Text(libL10n.restore),
+                  ),
+                  UIs.width7,
+                  TextButton(
+                    onPressed: () async => _onTapGistUp(context),
+                    child: Text(libL10n.backup),
+                  ),
+                ],
+              );
+            }),
+          ),
   ];
 
   Widget get _buildGist {
@@ -566,11 +709,41 @@ final class _BackupPageState extends ConsumerState<BackupPage>
   }
 
   Widget _buildSyncSettingsTile() {
+    if (isIOS) {
+      return IosRow(
+        title: l10n.syncAppSettings,
+        subtitle: l10n.syncAppSettingsTip,
+        trailing: StoreSwitch(prop: PrefProps.syncAppSettings),
+      );
+    }
     return ListTile(
       title: Text(l10n.syncAppSettings),
       subtitle: Text(l10n.syncAppSettingsTip, style: UIs.textGrey),
       trailing: StoreSwitch(prop: PrefProps.syncAppSettings),
     );
+  }
+
+  /// A settings row that on iOS is an IosRow with a chevron and on other
+  /// platforms the plain Material ListTile the desktop backup page uses.
+  Widget _navRow({required String title, required VoidCallback onTap}) {
+    if (isIOS) {
+      return IosRow(title: title, chevron: true, onTap: onTap);
+    }
+    return ListTile(title: Text(title), trailing: const Icon(Icons.settings), onTap: onTap);
+  }
+
+  /// An auto-sync toggle row: IosRow wrapping the shared sync switch on iOS,
+  /// plain ListTile elsewhere. The switch's async validator is unchanged.
+  Widget _syncRow({
+    required String title,
+    required StorePropDefault<bool> prop,
+    required FutureOr<bool> Function(bool) validator,
+  }) {
+    final child = StoreSwitch(prop: prop, validator: validator);
+    if (isIOS) {
+      return IosRow(title: title, trailing: child);
+    }
+    return ListTile(title: Text(title), trailing: child);
   }
 
   void _refreshIcloudStatus({bool notify = true}) {
