@@ -162,6 +162,36 @@ extension IosThemeX on ThemeData {
           borderSide: BorderSide.none,
         ),
       ),
+      // flutter#110671 (unfixed): on iOS the Cupertino route transition
+      // transforms the outgoing route mid-animation, and CoreGraphics aborts
+      // with "Transformed points can't form a rect" the moment a living,
+      // continuously-painting view sits underneath — which is exactly the
+      // terminal. A no-op transition keeps the outgoing route untransformed,
+      // so the zero-size rect never exists. Other platforms keep their
+      // default animation.
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.iOS: _IosNoTransitionBuilder(),
+        },
+      ),
     );
+  }
+}
+
+/// No-op iOS page transition.
+///
+/// See the [IosThemeX.iosified] pageTransitionsTheme for why.
+class _IosNoTransitionBuilder extends PageTransitionsBuilder {
+  const _IosNoTransitionBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    return child;
   }
 }
