@@ -16,7 +16,11 @@ import 'package:server_box/view/platform/ios_nav.dart';
 import 'package:server_box/view/widget/page_columns.dart';
 
 class PrivateKeysListPage extends ConsumerStatefulWidget {
-  const PrivateKeysListPage({super.key});
+  /// Whether the settings page already draws the navigation bar. Embedded
+  /// mode renders only the list (the + action lives in the settings bar).
+  final bool embedded;
+
+  const PrivateKeysListPage({super.key, this.embedded = false});
 
   @override
   ConsumerState<PrivateKeysListPage> createState() => _PrivateKeyListState();
@@ -31,7 +35,7 @@ class _PrivateKeyListState extends ConsumerState<PrivateKeysListPage>
     with AfterLayoutMixin {
   @override
   Widget build(BuildContext context) {
-    if (isIOS) {
+    if (isIOS && !widget.embedded) {
       return IosNavPage(
         title: l10n.privateKey,
         actions: [
@@ -46,6 +50,9 @@ class _PrivateKeyListState extends ConsumerState<PrivateKeysListPage>
         ],
         body: _buildIosBody(),
       );
+    }
+    if (isIOS && widget.embedded) {
+      return _buildIosBody();
     }
     return Scaffold(
       body: SafeArea(child: _buildBody()),

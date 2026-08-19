@@ -2597,6 +2597,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Security'**
   String get backupSecurity;
+
+  /// No description provided for @info.
+  ///
+  /// In en, this message translates to:
+  /// **'Info'**
+  String get info;
+
+  /// No description provided for @community.
+  ///
+  /// In en, this message translates to:
+  /// **'Community'**
+  String get community;
+
+  /// No description provided for @developer.
+  ///
+  /// In en, this message translates to:
+  /// **'Developer'**
+  String get developer;
 }
 
 class _AppLocalizationsDelegate

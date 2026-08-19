@@ -26,6 +26,7 @@ import 'package:server_box/data/res/url.dart';
 import 'package:server_box/data/store/setting.dart';
 import 'package:server_box/generated/l10n/l10n.dart';
 import 'package:server_box/view/page/backup.dart';
+import 'package:server_box/view/page/private_key/edit.dart';
 import 'package:server_box/view/page/private_key/list.dart';
 import 'package:server_box/view/page/server/connection_stats.dart';
 import 'package:server_box/view/page/setting/entries/home_tabs.dart';
@@ -228,13 +229,24 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         id: 'backup',
         title: libL10n.backup,
         icon: Icons.backup_outlined,
-        page: () => const BackupPage(),
+        // embedded: the pushed page draws the title bar, not BackupPage.
+        page: () => const BackupPage(embedded: true),
       ),
       SettingsNode.leaf(
         id: 'privateKey',
         title: l10n.privateKey,
         icon: Icons.key_outlined,
-        page: () => const PrivateKeysListPage(),
+        page: () => const PrivateKeysListPage(embedded: true),
+        actions: [
+          Tooltip(
+            message: libL10n.add,
+            child: CupertinoButton(
+              padding: const EdgeInsets.all(8),
+              onPressed: () => PrivateKeyEditPage.route.go(context),
+              child: const Icon(CupertinoIcons.add, size: 22),
+            ),
+          ),
+        ],
       ),
       SettingsNode.leaf(
         id: 'about',
@@ -314,6 +326,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             navigationBar: CupertinoNavigationBar(
               middle: Text(node.title),
               previousPageTitle: node.isLeaf ? libL10n.setting : null,
+              trailing: node.isLeaf
+                  ? (node.actions == null
+                        ? null
+                        : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: node.actions!,
+                          ))
+                  : null,
               backgroundColor: IosPalette.groupedBackgroundByBrightness(
                 Theme.of(context).brightness == Brightness.dark,
               ),

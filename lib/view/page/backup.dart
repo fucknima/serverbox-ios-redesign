@@ -22,7 +22,11 @@ import 'package:server_box/view/platform/ios_nav.dart';
 import 'package:webdav_client_plus/webdav_client_plus.dart';
 
 class BackupPage extends ConsumerStatefulWidget {
-  const BackupPage({super.key});
+  /// Whether the settings page already draws the navigation bar. Embedded
+  /// mode renders only the content.
+  final bool embedded;
+
+  const BackupPage({super.key, this.embedded = false});
 
   @override
   ConsumerState<BackupPage> createState() => _BackupPageState();
@@ -59,6 +63,7 @@ final class _BackupPageState extends ConsumerState<BackupPage>
   Widget build(BuildContext context) {
     super.build(context);
     if (isIOS) {
+      if (widget.embedded) return _buildIosBody;
       return IosNavBar(title: libL10n.backup, body: _buildIosBody);
     }
     return Scaffold(body: SafeArea(child: _buildBody));

@@ -434,5 +434,8 @@
   "quickActions": "快捷操作",
   "localFiles": "本机文件",
   "parentDir": "上一级",
-  "backupSecurity": "安全"
+  "backupSecurity": "安全",
+  "info": "信息",
+  "community": "社区",
+  "developer": "开发者"
 }

@@ -495,5 +495,8 @@
   "quickActions": "Quick actions",
   "localFiles": "Local files",
   "parentDir": "Parent folder",
-  "backupSecurity": "Security"
+  "backupSecurity": "Security",
+  "info": "Info",
+  "community": "Community",
+  "developer": "Developer"
 }

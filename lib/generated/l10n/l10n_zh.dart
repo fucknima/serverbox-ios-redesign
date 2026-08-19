@@ -1350,6 +1350,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get backupSecurity => '安全';
+
+  @override
+  String get info => '信息';
+
+  @override
+  String get community => '社区';
+
+  @override
+  String get developer => '开发者';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).

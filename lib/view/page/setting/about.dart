@@ -14,6 +14,7 @@ final class _AppAboutPageState extends State<_AppAboutPage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    if (isIOS) return _buildIos();
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.all(13),
@@ -81,4 +82,163 @@ ${l10n.madeWithLove('[lollipopkit](${Urls.myGithub})')}
 
   @override
   bool get wantKeepAlive => true;
+}
+
+
+extension _IosAbout on _AppAboutPageState {
+  Widget _buildIos() {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+      children: [
+        Center(
+          child: Column(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: SizedBox.square(
+                  dimension: 76,
+                  child: UIs.appIcon,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                BuildData.name,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'v${BuildData.build}',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: IosPalette.secondaryLabelByBrightness(
+                    Theme.of(context).brightness == Brightness.dark,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 28),
+        IosSection(
+          header: l10n.info,
+          children: [
+            IosRow(
+              title: libL10n.menuWiki,
+              leading: const IosSettingsIcon(CupertinoIcons.book),
+              chevron: true,
+              onTap: Urls.appWiki.launchUrl,
+            ),
+            IosRow(
+              title: libL10n.feedback,
+              leading: const IosSettingsIcon(CupertinoIcons.chat_bubble),
+              chevron: true,
+              onTap: Urls.appHelp.launchUrl,
+            ),
+            IosRow(
+              title: libL10n.license,
+              leading: const IosSettingsIcon(CupertinoIcons.doc_text),
+              chevron: true,
+              onTap: () => showLicensePage(context: context),
+            ),
+            IosRow(
+              title: l10n.sponsor,
+              leading: const IosSettingsIcon(CupertinoIcons.heart),
+              chevron: true,
+              onTap: () => _sponsorUrl.launchUrl(),
+            ),
+          ],
+        ),
+        IosSection(
+          header: l10n.community,
+          children: [
+            IosRow(
+              title: 'Contributors',
+              subtitle: '${GithubIds.contributors.length}',
+              leading: const IosSettingsIcon(CupertinoIcons.person_2),
+              chevron: true,
+              onTap: () => _pushGhList(
+                'Contributors',
+                GithubIds.contributors.toList(),
+              ),
+            ),
+            IosRow(
+              title: 'Participants',
+              subtitle: '${GithubIds.participants.length}',
+              leading: const IosSettingsIcon(CupertinoIcons.person_3),
+              chevron: true,
+              onTap: () => _pushGhList(
+                'Participants',
+                GithubIds.participants.toList(),
+              ),
+            ),
+          ],
+        ),
+        IosSection(
+          children: [
+            IosRow(
+              title: 'GPT Box',
+              leading: const IosSettingsIcon(CupertinoIcons.chevron_left_slash_chevron_right),
+              chevron: true,
+              onTap: () => 'https://github.com/lollipopkit/flutter_gpt_box'.launchUrl(),
+            ),
+            IosRow(
+              title: l10n.developer,
+              subtitle: 'lollipopkit',
+              leading: const IosSettingsIcon(CupertinoIcons.person_crop_circle),
+              chevron: true,
+              onTap: Urls.myGithub.launchUrl,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Center(
+          child: Text(
+            l10n.madeWithLove('lollipopkit'),
+            style: TextStyle(
+              fontSize: 12,
+              color: IosPalette.secondaryLabelByBrightness(
+                Theme.of(context).brightness == Brightness.dark,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Pushes a plain list of GitHub ids, one row each, linking to their
+  /// profile — instead of dumping dozens of names on the about page.
+  void _pushGhList(String title, List<GhId> ids) {
+    Navigator.of(context).push(
+      CupertinoPageRoute<void>(
+        builder: (_) => CupertinoPageScaffold(
+          navigationBar: CupertinoNavigationBar(
+            middle: Text(title),
+            backgroundColor: IosPalette.groupedBackgroundByBrightness(
+              Theme.of(context).brightness == Brightness.dark,
+            ),
+          ),
+          child: IosGroupedList(
+            children: [
+              IosSection(
+                children: [
+                  for (final id in ids)
+                    IosRow(
+                      title: id,
+                      titleMaxLines: 1,
+                      leading: const IosSettingsIcon(CupertinoIcons.person),
+                      chevron: true,
+                      onTap: () => id.url.launchUrl(),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

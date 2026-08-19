@@ -1388,4 +1388,13 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get backupSecurity => 'Security';
+
+  @override
+  String get info => 'Info';
+
+  @override
+  String get community => 'Community';
+
+  @override
+  String get developer => 'Developer';
 }

@@ -13,11 +13,16 @@ final class SettingsNode {
   final List<SettingsNode> children;
   final Widget Function()? builder;
 
+  /// Nav-bar actions for the pushed page, iPhone only (e.g. the "add private
+  /// key" button). Only leaf pages pushed from the root use this.
+  final List<Widget>? actions;
+
   const SettingsNode.leaf({
     required this.id,
     required this.title,
     required this.icon,
     required Widget Function() page,
+    this.actions,
   })  : builder = page,
         children = const [];
 
@@ -26,7 +31,8 @@ final class SettingsNode {
     required this.title,
     required this.icon,
     required this.children,
-  }) : builder = null;
+  })  : builder = null,
+        actions = null;
 
   bool get isLeaf => builder != null;
 
