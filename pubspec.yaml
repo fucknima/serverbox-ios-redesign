@@ -120,4 +120,10 @@ flutter_native_splash:
 # (`-[NSMutableDictionary initWithContentsOfFile:]`, SIGABRT) on iOS 27
 # beta. Pin the previous native implementation.
 dependency_overrides:
+  # Pin path_provider_foundation to the native (non-FFI) implementation.
+  # 2.6.0 dragged in package:objective_c, whose dart:ffi plist read aborts on
+  # iOS 27 beta ("-[NSMutableDictionary initWithContentsOfFile:]" +
+  # NSAssertionHandler -> SIGABRT). Revalidate on a future upstream release
+  # that drops objective_c, then remove this override. Do NOT delete while
+  # the pin is the only thing standing between sideloads and the crash.
   path_provider_foundation: 2.4.1

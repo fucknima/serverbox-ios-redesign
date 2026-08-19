@@ -158,16 +158,13 @@ extension _VirtKey on SSHPageState {
         return;
       }
 
-      // iOS: let go of the terminal's text input and wait for the keyboard
-      // transition to finish before pushing the page — pushing over a live
-      // IME has been seen to SIGABRT in Flutter's text input plumbing. The
-      // system channel hide is the explicit text-input teardown on top of
-      // focus removal.
+      // iOS: release the terminal's text input before the tab switch so the
+      // keyboard does not linger over the file tab. No route push anymore, so
+      // there is no need to wait for the view-inset settle.
       if (isIOS) {
         widget.args.focusNode?.unfocus();
         FocusManager.instance.primaryFocus?.unfocus();
         await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
-        await _waitForKeyboardDismiss();
         if (!mounted) return;
       }
 
@@ -181,18 +178,6 @@ extension _VirtKey on SSHPageState {
       ref.read(homeTabRequestProvider.notifier).go(AppTab.file);
     } finally {
       _isOpeningFileBrowser = false;
-    }
-  }
-
-  /// Waits until the keyboard's view inset is gone, with a timeout so a
-  /// stuck keyboard never blocks the route forever.
-  Future<void> _waitForKeyboardDismiss() async {
-    final deadline = DateTime.now().add(const Duration(seconds: 2));
-    while (mounted) {
-      final bottom = MediaQuery.maybeViewInsetsOf(context)?.bottom ?? 0;
-      if (bottom <= 1 || DateTime.now().isAfter(deadline)) return;
-      // Give the framework a frame to rebuild the insets before asking again.
-      await Future.delayed(const Duration(milliseconds: 50));
     }
   }
 

@@ -311,8 +311,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   /// Pushes one settings level (or a leaf page) with its own Cupertino bar,
-  /// so back and edge-swipe work per level.
-  void _iosPush(BuildContext context, SettingsNode node) {
+  /// so back and edge-swipe work per level. [parentTitle] is the title of the
+  /// level this route was pushed from, so the back label reads that level
+  /// instead of always the settings root.
+  void _iosPush(BuildContext context, SettingsNode node, {String? parentTitle}) {
     Navigator.of(context).push(
       CupertinoPageRoute<void>(
         builder: (_) {
@@ -320,12 +322,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ? node.builder!()
               : _SettingsLevelList(
                   nodes: node.children,
-                  onTap: (child) => _iosPush(context, child),
+                  onTap: (child) => _iosPush(context, child, parentTitle: node.title),
                 );
           return CupertinoPageScaffold(
             navigationBar: CupertinoNavigationBar(
               middle: Text(node.title),
-              previousPageTitle: node.isLeaf ? libL10n.setting : null,
+              previousPageTitle: parentTitle,
               trailing: node.isLeaf
                   ? (node.actions == null
                         ? null

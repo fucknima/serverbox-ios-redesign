@@ -9,6 +9,10 @@ import ActivityKit
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
+        #if DEBUG
+        // Crash diagnosis only: writes the NSException reason + stack to the
+        // temp dir so an SDK/engine abort can be traced on a test build.
+        // Compile-dropped from release, where it would only hide system logs.
         NSSetUncaughtExceptionHandler { exception in
             let reason = exception.reason ?? "nil"
             let stack = exception.callStackSymbols.joined(separator: "\n")
@@ -17,6 +21,7 @@ import ActivityKit
             try? payload.write(toFile: path, atomically: true, encoding: .utf8)
             NSLog("UNCAUGHT EXCEPTION: %@", payload)
         }
+        #endif
         return super.application(application, didFinishLaunchingWithOptions: launchOptions)
     }
 
