@@ -387,6 +387,42 @@ class SSHPageState extends ConsumerState<SSHPage>
     final theme = hasBg
         ? _terminalTheme.copyWith(background: Colors.transparent)
         : _terminalTheme;
+
+    // xterm applies MediaQuery.of(context).padding to the terminal viewport's
+    // inner top; inside a tab that top padding is still the status-bar
+    // height, which pushes the first line down into a big blank gap. Strip
+    // the top inset on iOS, where the session header already owns the status
+    // bar. Pushed (`notFromTab`) pages keep it.
+    final parcel = TerminalView(
+      _terminal,
+      key: _termKey,
+      controller: _terminalController,
+      keyboardType: TextInputType.text,
+      // The convention every terminal on every platform keeps: copy what is
+      // selected, and paste when nothing is. `_onClipboardAction` is the
+      // whole of it, and this is now its only caller — the toolbar button it
+      // was first written for is gone.
+      onSecondaryTapUp: (_, _) => _onClipboardAction(),
+      enableSuggestions: letterCache,
+      textStyle: _terminalStyle,
+      backgroundOpacity: 0,
+      theme: theme,
+      deleteDetection: isMobile,
+      autofocus: false,
+      keyboardAppearance: _isDark ? Brightness.dark : Brightness.light,
+      showToolbar: true,
+      viewOffset: Offset(
+        2 * _horizonPadding,
+        widget.args.notFromTab ? CustomAppBar.sysStatusBarHeight : 0,
+      ),
+      hideScrollBar: false,
+      focusNode: widget.args.focusNode,
+      toolbarBuilder: _buildTerminalToolbar,
+      onCopied: _onTerminalCopied,
+      onSelectAll: _onTerminalSelectAll,
+      onPaste: _onTerminalPaste,
+    );
+
     final children = <Widget>[];
     if (hasBg) {
       children.add(
@@ -411,7 +447,7 @@ class SSHPageState extends ConsumerState<SSHPage>
       children.add(
         Positioned.fill(
           child: ColoredBox(
-            color: _terminalTheme.background.withValues(alpha: opacity),
+            color: theme.background.withValues(alpha: opacity),
           ),
         ),
       );
@@ -419,39 +455,13 @@ class SSHPageState extends ConsumerState<SSHPage>
     children.add(
       Padding(
         padding: EdgeInsets.only(left: _horizonPadding, right: _horizonPadding),
-        child: TerminalView(
-          _terminal,
-          key: _termKey,
-          controller: _terminalController,
-          keyboardType: TextInputType.text,
-          // The convention every terminal on every platform keeps: copy what
-          // is selected, and paste when nothing is. `_onClipboardAction` is
-          // the whole of it, and this is now its only caller — the toolbar
-          // button it was first written for is gone.
-          onSecondaryTapUp: (_, _) => _onClipboardAction(),
-          enableSuggestions: letterCache,
-          textStyle: _terminalStyle,
-          backgroundOpacity: 0,
-          theme: theme,
-          deleteDetection: isMobile,
-          autofocus: false,
-          keyboardAppearance: _isDark ? Brightness.dark : Brightness.light,
-          showToolbar: true,
-          // The paragraph (term grid) sits below whatever chrome owns the
-          // top safe area. In a tab the session header already did, so the
-          // y offset is zero; pushed (`notFromTab`) pages still account for
-          // the status bar height the old CustomAppBar era reserved.
-          viewOffset: Offset(
-            2 * _horizonPadding,
-            widget.args.notFromTab ? CustomAppBar.sysStatusBarHeight : 0,
-          ),
-          hideScrollBar: false,
-          focusNode: widget.args.focusNode,
-          toolbarBuilder: _buildTerminalToolbar,
-          onCopied: _onTerminalCopied,
-          onSelectAll: _onTerminalSelectAll,
-          onPaste: _onTerminalPaste,
-        ),
+        child: isIOS
+            ? MediaQuery.removePadding(
+                context: context,
+                removeTop: true,
+                child: parcel,
+              )
+            : parcel,
       ),
     );
 

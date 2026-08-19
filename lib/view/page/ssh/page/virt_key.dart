@@ -160,10 +160,13 @@ extension _VirtKey on SSHPageState {
 
       // iOS: let go of the terminal's text input and wait for the keyboard
       // transition to finish before pushing the page — pushing over a live
-      // IME has been seen to SIGABRT in Flutter's text input plumbing.
+      // IME has been seen to SIGABRT in Flutter's text input plumbing. The
+      // system channel hide is the explicit text-input teardown on top of
+      // focus removal.
       if (isIOS) {
         widget.args.focusNode?.unfocus();
         FocusManager.instance.primaryFocus?.unfocus();
+        await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
         await _waitForKeyboardDismiss();
         if (!mounted) return;
       }
