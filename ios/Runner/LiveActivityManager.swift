@@ -4,11 +4,21 @@
 //
 //  Handles starting/updating/stopping Terminal Live Activities from Flutter via MethodChannel.
 //
+//  On sideloaded builds the app has no Live Activities entitlement (or the
+//  system disables them), and calling into ActivityKit there makes the
+//  framework read its activity plist and assert inside Foundation — which on
+//  iOS 27 beta aborts the process on the main thread while the terminal's
+//  5-second update tick is running. Every entry point therefore gates on
+//  `areActivitiesEnabled` first and swallows every error afterwards, so a
+//  sanctioned App Store build still gets its Live Activities and an ad-hoc
+//  build simply never touches ActivityKit.
+//
 
 import Foundation
 import ActivityKit
 
 @available(iOS 16.2, *)
+@MainActor
 class LiveActivityManager {
     private static var current: Activity<TerminalAttributes>?
 
@@ -20,6 +30,13 @@ class LiveActivityManager {
         let status: String
         let hasTerminal: Bool?
         let connectionCount: Int?
+    }
+
+    /// False on sideloaded/unsigned builds, broken entitlements, or when the
+    /// user turned Live Activities off. Guarding every entry avoids touching
+    /// ActivityKit (and the plist read that aborts) entirely in that case.
+    private static var activitiesEnabled: Bool {
+        ActivityAuthorizationInfo().areActivitiesEnabled
     }
 
     private static func parse(_ json: String) -> Payload? {
@@ -48,7 +65,7 @@ class LiveActivityManager {
     }
 
     static func start(json: String) {
-        guard #available(iOS 16.2, *) else { return }
+        guard activitiesEnabled else { return }
         guard let p = parse(json) else { return }
         let attributes = TerminalAttributes(id: p.id)
         let date = Date(timeIntervalSince1970: TimeInterval(p.startTimeMs) / 1000.0)
@@ -75,9 +92,14 @@ class LiveActivityManager {
             current = activity
             let duplicates = trackedActivities().filter { $0.id != activity.id }
             Task {
-                await activity.update(content)
-                for duplicate in duplicates {
-                    await duplicate.end(dismissalPolicy: .immediate)
+                do {
+                    try await activity.update(content)
+                    for duplicate in duplicates {
+                        try await duplicate.end(dismissalPolicy: .immediate)
+                    }
+                } catch {
+                    // Live Activities are best-effort; a failure here must
+                    // never take the process down.
                 }
             }
             return
@@ -91,7 +113,7 @@ class LiveActivityManager {
     }
 
     static func update(json: String) {
-        guard #available(iOS 16.2, *) else { return }
+        guard activitiesEnabled else { return }
         guard let p = parse(json) else { return }
         let date = Date(timeIntervalSince1970: TimeInterval(p.startTimeMs) / 1000.0)
         // Localize multi-connection title/subtitle on iOS side
@@ -115,9 +137,13 @@ class LiveActivityManager {
             current = activity
             let duplicates = trackedActivities().filter { $0.id != activity.id }
             Task {
-                await activity.update(ActivityContent(state: state, staleDate: nil))
-                for duplicate in duplicates {
-                    await duplicate.end(dismissalPolicy: .immediate)
+                do {
+                    try await activity.update(ActivityContent(state: state, staleDate: nil))
+                    for duplicate in duplicates {
+                        try await duplicate.end(dismissalPolicy: .immediate)
+                    }
+                } catch {
+                    // best-effort; never fatal
                 }
             }
         } else {
@@ -126,11 +152,15 @@ class LiveActivityManager {
     }
 
     static func stop() async {
-        guard #available(iOS 16.2, *) else { return }
+        guard activitiesEnabled else { return }
         let activities = trackedActivities()
         current = nil
         for activity in activities {
-            await activity.end(dismissalPolicy: .immediate)
+            do {
+                try await activity.end(dismissalPolicy: .immediate)
+            } catch {
+                // best-effort; never fatal
+            }
         }
     }
 }
