@@ -332,7 +332,7 @@ final sftpRequestsProvider = SftpRequestsProvider._();
 
 /// Servers waiting for a file browser. Same reasoning as [TerminalRequests].
 final class SftpRequestsProvider
-    extends $NotifierProvider<SftpRequests, List<Spi>> {
+    extends $NotifierProvider<SftpRequests, List<SftpRequest>> {
   /// Servers waiting for a file browser. Same reasoning as [TerminalRequests].
   SftpRequestsProvider._()
     : super(
@@ -353,29 +353,29 @@ final class SftpRequestsProvider
   SftpRequests create() => SftpRequests();
 
   /// {@macro riverpod.override_with_value}
-  Override overrideWithValue(List<Spi> value) {
+  Override overrideWithValue(List<SftpRequest> value) {
     return $ProviderOverride(
       origin: this,
-      providerOverride: $SyncValueProvider<List<Spi>>(value),
+      providerOverride: $SyncValueProvider<List<SftpRequest>>(value),
     );
   }
 }
 
-String _$sftpRequestsHash() => r'15729dc4f93d09dbc2bd0732e4fbeace921c7b50';
+String _$sftpRequestsHash() => r'e75ed5b2da8adf29d36edd830d91a264bc959d46';
 
 /// Servers waiting for a file browser. Same reasoning as [TerminalRequests].
 
-abstract class _$SftpRequests extends $Notifier<List<Spi>> {
-  List<Spi> build();
+abstract class _$SftpRequests extends $Notifier<List<SftpRequest>> {
+  List<SftpRequest> build();
   @$mustCallSuper
   @override
   WhenComplete runBuild() {
-    final ref = this.ref as $Ref<List<Spi>, List<Spi>>;
+    final ref = this.ref as $Ref<List<SftpRequest>, List<SftpRequest>>;
     final element =
         ref.element
             as $ClassProviderElement<
-              AnyNotifier<List<Spi>, List<Spi>>,
-              List<Spi>,
+              AnyNotifier<List<SftpRequest>, List<SftpRequest>>,
+              List<SftpRequest>,
               Object?,
               Object?
             >;

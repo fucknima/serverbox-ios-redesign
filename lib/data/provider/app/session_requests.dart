@@ -86,13 +86,24 @@ class TerminalRequests extends _$TerminalRequests {
   void clear() => state = const [];
 }
 
+/// A server waiting for a file browser. Same reasoning as [TerminalRequests].
+class SftpRequest {
+  const SftpRequest(this.spi, {this.initialPath});
+
+  final Spi spi;
+
+  /// Where the browser should start, for a terminal that knows the PWD.
+  final String? initialPath;
+}
+
 /// Servers waiting for a file browser. Same reasoning as [TerminalRequests].
 @Riverpod(keepAlive: true)
 class SftpRequests extends _$SftpRequests {
   @override
-  List<Spi> build() => const [];
+  List<SftpRequest> build() => const [];
 
-  void add(Spi spi) => state = [...state, spi];
+  void add(Spi spi, {String? initialPath}) =>
+      state = [...state, SftpRequest(spi, initialPath: initialPath)];
 
   void clear() => state = const [];
 }

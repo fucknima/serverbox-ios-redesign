@@ -461,8 +461,8 @@ extension _Sessions on _FileTabPageState {
     final pending = ref.read(sftpRequestsProvider);
     if (pending.isEmpty) return;
     ref.read(sftpRequestsProvider.notifier).clear();
-    for (final spi in pending) {
-      _openRemote(spi);
+    for (final req in pending) {
+      _openRemote(req.spi, initialPath: req.initialPath);
     }
   }
 

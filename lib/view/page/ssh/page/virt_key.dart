@@ -177,7 +177,7 @@ extension _VirtKey on SSHPageState {
       // transforms the continuously-painting terminal underneath and
       // CoreGraphics aborts with "Transformed points can't form a rect".
       // Switching tabs keeps the terminal out of the thing being repainted.
-      ref.read(sftpRequestsProvider.notifier).add(fileSpi);
+      ref.read(sftpRequestsProvider.notifier).add(fileSpi, initialPath: initPath);
       ref.read(homeTabRequestProvider.notifier).go(AppTab.file);
     } finally {
       _isOpeningFileBrowser = false;
