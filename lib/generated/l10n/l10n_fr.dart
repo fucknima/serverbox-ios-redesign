@@ -1478,4 +1478,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get localFiles => 'Local files';
+
+  @override
+  String get parentDir => 'Parent folder';
 }

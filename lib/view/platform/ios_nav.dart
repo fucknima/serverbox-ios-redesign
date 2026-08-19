@@ -224,12 +224,15 @@ class IosToolbar extends StatelessWidget implements PreferredSizeWidget {
 /// The iPhone session header for the terminal and file tabs.
 ///
 /// One bar, the session's name in the middle (tapping it switches sessions),
-/// actions on the right. No desktop tab strip, no second toolbar.
+/// actions on the right. The title lives in an [Expanded] between the
+/// leading edge and the actions, so it is squeezed and ellipsized instead of
+/// sliding under the buttons — no Stack that lets title and actions overlap.
 class IosSessionHeader extends StatelessWidget implements PreferredSizeWidget {
   const IosSessionHeader({
     super.key,
     required this.title,
     this.subtitle,
+    this.leading,
     this.actions,
     this.onTitleTap,
     this.background,
@@ -237,6 +240,7 @@ class IosSessionHeader extends StatelessWidget implements PreferredSizeWidget {
 
   final String title;
   final String? subtitle;
+  final Widget? leading;
   final List<Widget>? actions;
   final VoidCallback? onTitleTap;
   final Color? background;
@@ -251,33 +255,48 @@ class IosSessionHeader extends StatelessWidget implements PreferredSizeWidget {
     final bg = background ?? IosPalette.groupedBackgroundByBrightness(isDark);
     final label = IosPalette.secondaryLabelByBrightness(isDark);
 
-    final titleWidget = GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTitleTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Flexible(
-              child: Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
+    final titleColumn = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTitleTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Flexible(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
-              ),
+                if (onTitleTap != null) ...[
+                  const SizedBox(width: 4),
+                  Icon(CupertinoIcons.chevron_down, size: 12, color: label),
+                ],
+              ],
             ),
-            if (onTitleTap != null) ...[
-              const SizedBox(width: 4),
-              Icon(CupertinoIcons.chevron_down, size: 12, color: label),
-            ],
-          ],
+          ),
         ),
-      ),
+        if (subtitle != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text(
+              subtitle!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 11, color: label),
+            ),
+          ),
+      ],
     );
 
     return Material(
@@ -286,29 +305,23 @@ class IosSessionHeader extends StatelessWidget implements PreferredSizeWidget {
         bottom: false,
         child: SizedBox(
           height: 44,
-          child: Stack(
-            alignment: Alignment.center,
+          // Row, not Stack: the title is an Expanded between the leading
+          // edge and the actions, so both sides take part in the layout and
+          // a long title ellipsizes instead of overlapping the buttons.
+          child: Row(
             children: [
-              titleWidget,
-              if (subtitle != null)
-                Align(
-                  alignment: const Alignment(0, 1.1),
-                  child: Text(
-                    subtitle!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 11, color: label),
-                  ),
-                ),
+              if (leading != null) ...[
+                SizedBox(width: 44, child: leading),
+              ],
+              Expanded(
+                child: Center(child: titleColumn),
+              ),
               if (actions != null)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 4),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: actions!,
-                    ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: actions!,
                   ),
                 ),
             ],

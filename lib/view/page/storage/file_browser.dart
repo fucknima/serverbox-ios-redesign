@@ -1326,9 +1326,13 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage>
           itemBuilder: (context, index) {
             if (up == 1 && index == 0) {
               return _buildIosEntryRow(
-                ListTile(
-                  leading: const Icon(Icons.arrow_upward),
-                  title: const Text('..'),
+                IosRow(
+                  title: l10n.parentDir,
+                  leading: Icon(
+                    CupertinoIcons.arrow_up_circle,
+                    size: 22,
+                    color: IosPalette.blue(context),
+                  ),
                   onTap: () => _go(_path.goUp),
                 ),
                 first: true,
@@ -1461,14 +1465,19 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage>
     ];
 
     if (isIOS) {
-      // Files.app row: full-width, no ripple, Cupertino glyphs, selection as
-      // a tinted background. The keyboard-cursor outline stays on desktops,
-      // where the keyboard is used.
+      // Files.app row on iPhone: the name gets the width, one secondary line
+      // of metadata underneath (size · date). Permissions and full timestamps
+      // stay reachable from the long-press menu, not pinned on the row.
+      final iosMeta = [
+        if (entry.size case final size? when !entry.isDir) size.bytes2Str,
+        if (entry.modified case final at?)
+          '${at.year}-${at.month.toString().padLeft(2, '0')}-${at.day.toString().padLeft(2, '0')}',
+      ];
       return IosRow(
         title: label ?? entry.name,
-        titleMaxLines: 2,
-        subtitle: details.isEmpty ? null : details.join('\n'),
-        subtitleMaxLines: 3,
+        titleMaxLines: 1,
+        subtitle: iosMeta.isEmpty ? null : iosMeta.join(' · '),
+        subtitleMaxLines: 1,
         leading: Icon(
           switch (entry.kind) {
             FileKind.dir => CupertinoIcons.folder_fill,
@@ -1478,7 +1487,6 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage>
           size: 22,
           color: IosPalette.blue(context),
         ),
-        trailing: isNarrow ? null : _buildEntryTrailing(entry),
         onTap: onTap,
         onLongPress: onLongPress,
         selected: _selected.contains(entry.name),
@@ -1809,9 +1817,62 @@ class _InlineSearchState extends State<_InlineSearch> {
 extension _IosFileChrome on _FileBrowserPageState {
   /// The nav-bar actions on iPhone: sort, search, and the "…" menu holding
   /// what the bottom toolbar used to.
+  /// The sort choices (and show-hidden toggle) as an iOS action sheet.
+  Future<void> _showIosSortSheet() async {
+    final value = _sort.value;
+    final hidden = Stores.setting.showHiddenFiles.fetch();
+    final choice = await showCupertinoModalPopup<Object>(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
+        title: Text(libL10n.sort),
+        actions: [
+          for (final by in _SortBy.values)
+            CupertinoActionSheetAction(
+              isDefaultAction: by == value.by,
+              onPressed: () => Navigator.pop(context, by),
+              child: Text(
+                by == value.by
+                    ? '${by.i18n} (${value.reversed ? '-' : '+'})'
+                    : by.i18n,
+              ),
+            ),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.pop(context, _kToggleHidden),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  hidden
+                      ? CupertinoIcons.checkmark
+                      : CupertinoIcons.circle,
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Text(l10n.showHiddenFiles),
+              ],
+            ),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(context),
+          child: Text(libL10n.cancel),
+        ),
+      ),
+    );
+    if (choice == null || !mounted) return;
+    if (choice == _kToggleHidden) {
+      Stores.setting.showHiddenFiles.put(!hidden);
+      _sort.notifyListeners();
+      return;
+    }
+    final by = choice as _SortBy;
+    _sort.value = by == value.by
+        ? _SortOption(by: value.by, reversed: !value.reversed)
+        : _SortOption(by: by, reversed: value.reversed);
+  }
+
   List<Widget> _buildIosActions() {
     return [
-      _buildViewBtn(),
       Tooltip(
         message: libL10n.search,
         child: CupertinoButton(
@@ -1839,6 +1900,13 @@ extension _IosFileChrome on _FileBrowserPageState {
       builder: (context) => CupertinoActionSheet(
         title: Text(_path.name, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _showIosSortSheet();
+            },
+            child: Text(libL10n.sort),
+          ),
           for (final action in _createActions)
             CupertinoActionSheetAction(
               onPressed: () {

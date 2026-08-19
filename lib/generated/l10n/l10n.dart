@@ -2585,6 +2585,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Local files'**
   String get localFiles;
+
+  /// No description provided for @parentDir.
+  ///
+  /// In en, this message translates to:
+  /// **'Parent folder'**
+  String get parentDir;
 }
 
 class _AppLocalizationsDelegate

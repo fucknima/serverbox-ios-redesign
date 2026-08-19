@@ -321,6 +321,8 @@ class _FileTabPageState extends ConsumerState<FileTabPage>
       final sessionCount = _sessions.tabs.length;
       return IosSessionHeader(
         title: current?.name ?? libL10n.file,
+        // The current directory as the subtitle, ellipsized; no second bar.
+        subtitle: current?.data.path,
         onTitleTap: isPicker || sessionCount <= 1
             ? null
             : _showIosSessionSwitch,
