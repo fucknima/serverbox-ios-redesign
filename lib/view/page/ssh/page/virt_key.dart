@@ -171,8 +171,14 @@ extension _VirtKey on SSHPageState {
         if (!mounted) return;
       }
 
-      final args = SftpPageArgs(spi: fileSpi, initPath: initPath);
-      SftpPage.route.go(context, args);
+      // Open the file browser in the file **tab**, exactly like the shortcut
+      // on a server card does. Pushing SftpPage as a route over the live
+      // terminal crashes on iOS (flutter#110671): the route transition
+      // transforms the continuously-painting terminal underneath and
+      // CoreGraphics aborts with "Transformed points can't form a rect".
+      // Switching tabs keeps the terminal out of the thing being repainted.
+      ref.read(sftpRequestsProvider.notifier).add(fileSpi);
+      ref.read(homeTabRequestProvider.notifier).go(AppTab.file);
     } finally {
       _isOpeningFileBrowser = false;
     }
