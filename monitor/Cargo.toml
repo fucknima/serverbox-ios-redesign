@@ -15,8 +15,8 @@ sbm_parser = { path = "../crates/sbm_parser" }
 sbm_native = { path = "../crates/sbm_native" }
 
 # Web framework
-ntex = { version = "3", features = ["tokio", "rustls"] }
-ntex-files = "3.2"
+ntex = { version = "4", features = ["tokio", "rustls"] }
+ntex-files = "4.1"
 
 # TLS (ring instead of aws-lc: no cmake/assembly dependency for static musl builds)
 rustls = { version = "0.23", default-features = false, features = ["ring", "logging", "std", "tls12"] }
@@ -41,14 +41,14 @@ sqlx = { version = "0.9", features = [
 
 # Authentication
 # rust_crypto instead of aws_lc_rs: pure Rust, no cmake/assembly dependency for static musl builds
-jsonwebtoken = { version = "10.4", default-features = false, features = ["rust_crypto"] }
+jsonwebtoken = { version = "11.1", default-features = false, features = ["rust_crypto"] }
 bcrypt = "0.19"
 
 # Configuration
 dotenvy = "0.15"
 
 # Random credential generation (JWT secret / initial admin password) and no-echo password input
-getrandom = "0.3"
+getrandom = "0.4"
 rpassword = "7"
 
 # HTTP client for push notifications
@@ -68,7 +68,7 @@ reqwest = { version = "0.13", default-features = false, features = ["json", "rus
 # push client panics on its first HTTPS request (verified: it drops aws-lc and
 # cmake from the tree, and fails all five push tests until the provider is
 # installed). Left alone here as it belongs to the push path, not this one.
-russh = { version = "0.62", default-features = false, features = ["ring", "flate2", "rsa"] }
+russh = { version = "0.64", default-features = false, features = ["ring", "flate2", "rsa"] }
 # Wipes SSH credentials from memory once they have been used
 zeroize = "1"
 
